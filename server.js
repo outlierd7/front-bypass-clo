@@ -501,25 +501,56 @@ function isPrivateIP(ip) {
   return false;
 }
 
-// Helper: geolocalização por IP (ipapi.co + fallback ip-api.com)
-async function getCountryByIP(ip) {
-  if (!ip || isPrivateIP(ip)) return null;
+// Helper: geolocalização por IP – retorna { country, city, region, isp } (ipapi.co + fallback ip-api.com)
+async function getGeoByIP(ip) {
+  const out = { country: null, city: null, region: null, isp: null };
+  if (!ip || isPrivateIP(ip)) return out;
   const normalized = ip.replace(/^::ffff:/, '');
+  const headers = { 'User-Agent': 'CloakerPro/1.0' };
+
   try {
-    const res = await fetch(`https://ipapi.co/${normalized}/json/`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`https://ipapi.co/${normalized}/json/`, { signal: AbortSignal.timeout(5000), headers });
     if (res.ok) {
       const geo = await res.json();
-      if (geo.country_code) return geo.country_code;
+      if (geo.country_code) {
+        out.country = geo.country_code;
+        out.city = geo.city || null;
+        out.region = geo.region || null;
+        out.isp = geo.org || geo.organisation || null;
+        return out;
+      }
     }
   } catch (e) {}
+
   try {
-    const res = await fetch(`https://ip-api.com/json/${normalized}?fields=countryCode`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`http://ip-api.com/json/${normalized}?fields=countryCode,city,regionName,isp`, { signal: AbortSignal.timeout(5000), headers });
     if (res.ok) {
       const geo = await res.json();
-      if (geo.countryCode) return geo.countryCode;
+      if (geo.countryCode) {
+        out.country = geo.countryCode;
+        out.city = geo.city || null;
+        out.region = geo.regionName || null;
+        out.isp = geo.isp || null;
+        return out;
+      }
     }
   } catch (e) {}
-  return null;
+
+  try {
+    const res = await fetch(`https://ipwho.is/${normalized}`, { signal: AbortSignal.timeout(5000), headers });
+    if (res.ok) {
+      const geo = await res.json();
+      if (geo.success && geo.country_code) {
+        out.country = geo.country_code;
+        out.city = geo.city || null;
+        out.region = geo.region || null;
+        out.isp = (geo.connection && (geo.connection.isp || geo.connection.org)) || null;
+        return out;
+      }
+    }
+  } catch (e) {}
+
+  return out;
 }
 
 // ========== LINK PARA ADS: /go/:code ==========
@@ -545,7 +576,8 @@ app.get('/go/:code', async (req, res) => {
   const ua = parser.getResult();
   const deviceType = (ua.device && ua.device.type) ? ua.device.type : (userAgent.toLowerCase().match(/mobile|android|iphone|ipad/) ? 'mobile' : 'desktop');
 
-  let country = await getCountryByIP(ip);
+  const geo = await getGeoByIP(ip);
+  const country = geo.country;
 
   const allowedList = (site.allowed_countries || 'BR').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
   const blockedList = (site.blocked_countries || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
@@ -582,8 +614,8 @@ app.get('/go/:code', async (req, res) => {
 
   const wasBlocked = !!blockReason;
 
-  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [site.site_id, ip, userAgent, referer, fullUrl, country || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0]);
+  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0]);
 
   if (wasBlocked) {
     return res.redirect(302, site.redirect_url || 'https://www.google.com/');

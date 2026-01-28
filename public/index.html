@@ -840,6 +840,7 @@
             <div><h4 style="margin-bottom:15px;color:var(--accent)">📍 Localização</h4>
               <div class="info-item"><span class="info-label">IP</span><span class="info-value">${v.ip||'-'}</span></div>
               <div class="info-item"><span class="info-label">País</span><span class="info-value">${v.country||'-'}</span></div>
+              <div class="info-item"><span class="info-label">Região</span><span class="info-value">${v.region||'-'}</span></div>
               <div class="info-item"><span class="info-label">Cidade</span><span class="info-value">${v.city||'-'}</span></div>
               <div class="info-item"><span class="info-label">ISP</span><span class="info-value">${v.isp||'-'}</span></div>
             </div>
@@ -847,7 +848,7 @@
               <div class="info-item"><span class="info-label">Tipo</span><span class="info-value">${v.device_type||'desktop'}</span></div>
               <div class="info-item"><span class="info-label">Navegador</span><span class="info-value">${v.browser||'-'} ${v.browser_version||''}</span></div>
               <div class="info-item"><span class="info-label">Sistema</span><span class="info-value">${v.os||'-'}</span></div>
-              <div class="info-item"><span class="info-label">Tela</span><span class="info-value">${v.screen_width}x${v.screen_height}</span></div>
+              <div class="info-item"><span class="info-label">Tela</span><span class="info-value">${(v.screen_width && v.screen_height) ? (v.screen_width + 'x' + v.screen_height) : '-'}</span></div>
             </div>
             <div><h4 style="margin-bottom:15px;color:var(--accent)">🔍 Detecção</h4>
               <div class="info-item"><span class="info-label">Status</span><span class="info-value">${v.was_blocked?'🚫 Bloqueado':'✅ Permitido'}</span></div>
