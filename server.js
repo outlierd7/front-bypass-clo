@@ -493,9 +493,38 @@ app.get('/api/export', (req, res) => {
   }
 });
 
+// Helper: IP público (não localhost/VPN interna)
+function isPrivateIP(ip) {
+  if (!ip || ip === 'unknown') return true;
+  if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('::ffff:127.')) return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') || ip.startsWith('172.2') || ip.startsWith('172.30.') || ip.startsWith('172.31.')) return true;
+  return false;
+}
+
+// Helper: geolocalização por IP (ipapi.co + fallback ip-api.com)
+async function getCountryByIP(ip) {
+  if (!ip || isPrivateIP(ip)) return null;
+  const normalized = ip.replace(/^::ffff:/, '');
+  try {
+    const res = await fetch(`https://ipapi.co/${normalized}/json/`, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const geo = await res.json();
+      if (geo.country_code) return geo.country_code;
+    }
+  } catch (e) {}
+  try {
+    const res = await fetch(`https://ip-api.com/json/${normalized}?fields=countryCode`, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const geo = await res.json();
+      if (geo.countryCode) return geo.countryCode;
+    }
+  } catch (e) {}
+  return null;
+}
+
 // ========== LINK PARA ADS: /go/:code ==========
 // Você cola seu link no painel → o sistema gera um novo link → use esse link nos anúncios.
-// Quem clica passa aqui: checamos (desktop, bot, país, etc.) e redirecionamos para seu site ou para a URL de bloqueio.
+// Quem clica passa aqui: checamos (desktop, bot, emulador, país por IP) e redirecionamos.
 app.get('/go/:code', async (req, res) => {
   const code = (req.params.code || '').toLowerCase();
   const site = get('SELECT * FROM sites WHERE link_code = ? AND is_active = 1', [code]);
@@ -503,52 +532,58 @@ app.get('/go/:code', async (req, res) => {
     return res.redirect(302, 'https://www.google.com/');
   }
 
-  const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').split(',')[0].trim() || 'unknown';
+  // IP: prioridade cf-connecting-ip (Cloudflare), true-client-ip, x-forwarded-for (1º = cliente), x-real-ip, socket
+  let ip = (req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').toString();
+  ip = ip.split(',')[0].trim();
+  if (ip === '::1') ip = '127.0.0.1';
+  if (!ip) ip = 'unknown';
+
   const userAgent = req.headers['user-agent'] || '';
-  const referer = req.headers['referer'] || req.headers['referrer'] || '';
+  const referer = (req.headers['referer'] || req.headers['referrer'] || '').toLowerCase();
   const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
   const parser = new UAParser(userAgent);
   const ua = parser.getResult();
   const deviceType = (ua.device && ua.device.type) ? ua.device.type : (userAgent.toLowerCase().match(/mobile|android|iphone|ipad/) ? 'mobile' : 'desktop');
 
-  let country = null;
-  try {
-    const geoRes = await fetch(`https://ipapi.co/${ip}/json/`, { signal: AbortSignal.timeout(3000) });
-    if (geoRes.ok) {
-      const geo = await geoRes.json();
-      country = geo.country_code || null;
-    }
-  } catch (e) {}
+  let country = await getCountryByIP(ip);
 
-  const allowedList = (site.allowed_countries || 'BR').split(',').map(c => c.trim()).filter(Boolean);
-  const blockedList = (site.blocked_countries || '').split(',').map(c => c.trim()).filter(Boolean);
+  const allowedList = (site.allowed_countries || 'BR').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+  const blockedList = (site.blocked_countries || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
 
   function isDesktop() {
     const u = userAgent.toLowerCase();
     return !/mobile|android|iphone|ipad|webos|blackberry|iemobile|opera mini/i.test(u);
   }
   function isFromFacebook() {
-    const r = referer.toLowerCase();
-    const u = fullUrl.toLowerCase();
-    return r.includes('facebook.com') || r.includes('fb.com') || u.includes('fbclid=');
+    return referer.includes('facebook.com') || referer.includes('fb.com') || fullUrl.toLowerCase().includes('fbclid=');
   }
   function isBot() {
     const u = userAgent.toLowerCase();
-    const bots = ['bot', 'crawler', 'spider', 'googlebot', 'facebookexternalhit', 'facebot', 'slurp', 'duckduckbot', 'bingbot', 'yandex', 'curl', 'wget', 'python', 'java', 'headless'];
+    const bots = ['bot', 'crawler', 'spider', 'googlebot', 'facebookexternalhit', 'facebot', 'slurp', 'duckduckbot', 'bingbot', 'yandex', 'curl', 'wget', 'python-requests', 'python/', 'java/', 'headless', 'headlesschrome', 'puppeteer', 'phantom', 'selenium', 'playwright', 'chromedriver', 'geckodriver', 'phantomjs', 'lighthouse', 'gtmetrix', 'screaming frog'];
     return bots.some(b => u.includes(b)) || !!req.headers['x-purpose'];
+  }
+  function isEmulator() {
+    const u = userAgent.toLowerCase();
+    return /android sdk|sdk_gphone|emulator|generic.*android|build\/generic|model.*unknown|vbox|genymotion|bluestacks|nox|andy|droid4x|memu|koplayer|mumu/i.test(u) ||
+      (ua.device && (ua.device.model === 'unknown' || ua.device.model === 'Emulator'));
   }
 
   let blockReason = null;
-  if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
+  if (site.block_bots && isBot()) blockReason = 'Bot detectado';
+  else if (isEmulator()) blockReason = 'Emulador detectado (apenas celular real permitido)';
+  else if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
   else if (site.block_facebook_library && isFromFacebook() && isDesktop()) blockReason = 'Biblioteca Facebook';
-  else if (site.block_bots && isBot()) blockReason = 'Bot detectado';
-  else if (country && allowedList.length && !allowedList.includes(country)) blockReason = `País não permitido: ${country}`;
-  else if (country && blockedList.includes(country)) blockReason = `País bloqueado: ${country}`;
+  else if (allowedList.length > 0) {
+    const countryUpper = country ? country.toUpperCase() : null;
+    if (!countryUpper) blockReason = 'País não identificado pelo IP (bloqueado por segurança)';
+    else if (!allowedList.includes(countryUpper)) blockReason = `País não permitido: ${countryUpper}`;
+    else if (blockedList.length > 0 && blockedList.includes(countryUpper)) blockReason = `País bloqueado: ${countryUpper}`;
+  } else if (country && blockedList.includes(country.toUpperCase())) blockReason = `País bloqueado: ${country}`;
 
   const wasBlocked = !!blockReason;
 
-  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, device_type, browser, os, was_blocked, block_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [site.site_id, ip, userAgent, referer, fullUrl, country, deviceType, ua.browser?.name, ua.os?.name, wasBlocked ? 1 : 0, blockReason]);
+  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [site.site_id, ip, userAgent, referer, fullUrl, country || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0]);
 
   if (wasBlocked) {
     return res.redirect(302, site.redirect_url || 'https://www.google.com/');

@@ -207,8 +207,8 @@
         <div class="card-body">
           <div class="table-container">
             <table>
-              <thead><tr><th>Data/Hora (BRT)</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>Motivo</th><th>Ações</th></tr></thead>
-              <tbody id="lastVisitsTable"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
+              <thead><tr><th>Data/Hora (BRT)</th><th>IP</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>Motivo</th><th>Ações</th></tr></thead>
+              <tbody id="lastVisitsTable"><tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -245,8 +245,8 @@
       <div class="card"><div class="card-body">
         <div class="table-container">
           <table>
-            <thead><tr><th>Data</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>Navegador</th><th>Ações</th></tr></thead>
-            <tbody id="visitorsTable"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
+            <thead><tr><th>Data</th><th>IP</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>Navegador</th><th>Ações</th></tr></thead>
+            <tbody id="visitorsTable"><tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr></tbody>
           </table>
         </div>
         <div class="pagination" id="pagination"></div>
@@ -643,12 +643,13 @@
         const res = await fetch(`/api/visitors?page=1&limit=10&filter=all&site=${siteId}`);
         const data = await res.json();
         if (data.visitors.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-secondary)">Nenhum acesso ainda</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-secondary)">Nenhum acesso ainda</td></tr>';
           return;
         }
         tbody.innerHTML = data.visitors.map(v => `
           <tr>
             <td>${formatDateTimeBR(v.created_at)}</td>
+            <td><code style="font-size:11px">${v.ip || '-'}</code></td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
             <td>${v.was_blocked ? '<span class="badge badge-danger">Bloqueado</span>' : '<span class="badge badge-success">Permitido</span>'}</td>
             <td>${v.country || '-'}</td>
@@ -657,7 +658,7 @@
             <td><button class="btn btn-secondary btn-sm" onclick="viewVisitor(${v.id})"><i class="ri-eye-line"></i></button></td>
           </tr>
         `).join('');
-      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="8" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
     }
 
     function updateCharts(stats) {
@@ -708,18 +709,19 @@
     async function loadVisitors() {
       const siteId = document.getElementById('visitorsSiteFilter').value;
       const tbody = document.getElementById('visitorsTable');
-      tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr>';
       try {
         const res = await fetch(`/api/visitors?page=${currentPage}&filter=${currentFilter}&site=${siteId}`);
         const data = await res.json();
         if (data.visitors.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante encontrado</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante encontrado</td></tr>';
           document.getElementById('pagination').innerHTML = '';
           return;
         }
         tbody.innerHTML = data.visitors.map(v => `
           <tr>
             <td>${formatDateBR(v.created_at)}</td>
+            <td><code style="font-size:11px">${v.ip || '-'}</code></td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
             <td>${v.was_blocked ? '<span class="badge badge-danger"><i class="ri-close-line"></i> Bloqueado</span>' : '<span class="badge badge-success"><i class="ri-check-line"></i> OK</span>'}${v.is_bot ? ' <span class="badge badge-warning">Bot</span>' : ''}</td>
             <td>${v.country || '-'}</td>
@@ -740,7 +742,7 @@
           pag += `<button class="page-btn" ${currentPage >= data.pages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})"><i class="ri-arrow-right-line"></i></button>`;
         }
         document.getElementById('pagination').innerHTML = pag;
-      } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
+      } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="8" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
     }
 
     function goToPage(p) { currentPage = p; loadVisitors(); }
