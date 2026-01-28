@@ -155,7 +155,7 @@
       <li class="nav-item"><a class="nav-link" data-section="sites"><i class="ri-global-line"></i> Meus Sites</a></li>
       <li class="nav-item"><a class="nav-link" data-section="visitors"><i class="ri-user-line"></i> Visitantes</a></li>
       <li class="nav-item"><a class="nav-link" data-section="reports"><i class="ri-file-list-3-line"></i> Permitidos e Bloqueados</a></li>
-      <li class="nav-item"><a class="nav-link" data-section="script"><i class="ri-code-s-slash-line"></i> Integração</a></li>
+      <li class="nav-item"><a class="nav-link" data-section="script"><i class="ri-link"></i> Link para Ads</a></li>
     </ul>
   </aside>
 
@@ -299,38 +299,61 @@
     <!-- Script/Integração -->
     <section id="script" class="section">
       <div class="header">
-        <h2>Integração</h2>
+        <h2>Link para Ads</h2>
+      </div>
+      <!-- Gerar link direto: colar URL → gerar link para usar nos Ads -->
+      <div class="card" style="border: 2px solid var(--accent);">
+        <div class="card-header"><h3 class="card-title"><i class="ri-links-line"></i> Gerar novo link para Ads</h3></div>
+        <div class="card-body">
+          <p style="color: var(--text-secondary); margin-bottom: 15px;">Cole o link da sua landing page abaixo e clique em <strong>Gerar link</strong>. Use o link gerado como <strong>URL de destino</strong> nos seus anúncios (Meta Ads, Google Ads, etc.).</p>
+          <div class="form-group">
+            <label class="form-label">URL da sua landing page</label>
+            <input type="url" class="form-input" id="quickTargetUrl" placeholder="https://seusite.com/landing">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nome (opcional – para identificar no painel)</label>
+            <input type="text" class="form-input" id="quickSiteName" placeholder="Ex: Campanha Janeiro">
+          </div>
+          <button class="btn btn-primary" onclick="generateLinkFromUrl()"><i class="ri-link"></i> Gerar link para Ads</button>
+          <div id="generatedLinkBox" style="display: none; margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: 10px; border: 1px solid var(--success);">
+            <div class="form-label" style="margin-bottom: 8px;">✅ Link gerado – use esse link nos seus anúncios:</div>
+            <div class="code-block" style="margin-bottom: 10px;">
+              <button class="copy-btn" id="copyGeneratedLinkBtn" onclick="copyToClipboard(document.getElementById('generatedLinkText').textContent)"><i class="ri-file-copy-line"></i> Copiar</button>
+              <pre id="generatedLinkText"></pre>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 12px;">Não precisa colocar nenhum script no seu site. Só use esse link como URL de destino nos Ads.</p>
+          </div>
+        </div>
       </div>
       <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="ri-information-line"></i> Como Funciona</h3></div>
+        <div class="card-header"><h3 class="card-title"><i class="ri-information-line"></i> Como funciona</h3></div>
         <div class="card-body">
           <p style="margin-bottom: 20px; line-height: 1.8;">
-            <strong>1.</strong> Crie um novo site na aba "Meus Sites"<br>
-            <strong>2.</strong> Copie o script gerado para aquele site<br>
-            <strong>3.</strong> Cole como <strong>primeira tag</strong> no <code>&lt;head&gt;</code> da sua landing page (antes de CSS e outros scripts)<br>
-            <strong>4.</strong> Pronto! Quem for bloquear é redirecionado antes de ver o site; quem for permitido vê a página na hora
+            <strong>1.</strong> Em "Meus Sites", cadastre seu site e coloque a <strong>URL da sua landing page</strong> (o link real do seu site).<br>
+            <strong>2.</strong> O sistema gera um <strong>novo link</strong> para você (ex: <code>https://seu-painel.up.railway.app/go/abc12xyz</code>).<br>
+            <strong>3.</strong> Use esse novo link como <strong>URL de destino</strong> nos seus anúncios (Meta Ads, Google Ads, etc.).<br>
+            <strong>4.</strong> Quem clicar no anúncio passa primeiro pelo nosso servidor: se for permitido (ex: mobile, Brasil), vai para seu site; se for bloqueado (desktop, bot, etc.), vai para a URL de redirecionamento (ex: Google).
           </p>
           <div style="background: var(--bg-secondary); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
             <h4 style="margin-bottom: 10px;">📌 Importante</h4>
             <ul style="color: var(--text-secondary); line-height: 1.8; padding-left: 20px;">
-              <li>Cada site tem seu próprio ID e configurações</li>
-              <li>Coloque o script como <strong>primeira tag</strong> no &lt;head&gt; para quem for bloquear não ver nada do site</li>
-              <li>Você pode ter quantos sites quiser</li>
-              <li>As configurações de bloqueio são individuais por site</li>
-              <li>Todos os dados aparecem no mesmo painel</li>
+              <li><strong>Não precisa colocar nenhum script no seu site.</strong> Só usar o link gerado nos Ads.</li>
+              <li>Cada site tem seu próprio link e configurações (país, bloqueio de desktop, etc.).</li>
+              <li>Os parâmetros do anúncio (UTM, fbclid, etc.) são repassados para sua landing page.</li>
+              <li>Todos os acessos (permitidos e bloqueados) aparecem no painel.</li>
             </ul>
           </div>
         </div>
       </div>
       <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="ri-code-line"></i> Exemplo de Código</h3></div>
+        <div class="card-header"><h3 class="card-title"><i class="ri-link"></i> Seu link para usar nos Ads</h3></div>
         <div class="card-body">
-          <p style="margin-bottom: 15px; color: var(--text-secondary);">Selecione um site para ver o código de integração:</p>
+          <p style="margin-bottom: 15px; color: var(--text-secondary);">Selecione um site para ver e copiar o link:</p>
           <select class="form-select" id="scriptSiteSelector" style="max-width: 300px; margin-bottom: 20px;" onchange="updateScriptCode()">
             <option value="">Selecione um site...</option>
           </select>
           <div class="code-block" id="scriptCodeBlock" style="display: none;">
-            <button class="copy-btn" onclick="copyScript()"><i class="ri-file-copy-line"></i> Copiar</button>
+            <button class="copy-btn" onclick="copyScript()"><i class="ri-file-copy-line"></i> Copiar link</button>
             <pre id="scriptCode"></pre>
           </div>
         </div>
@@ -352,12 +375,17 @@
           <input type="text" class="form-input" id="siteName" placeholder="Ex: Landing Page Produto X">
         </div>
         <div class="form-group">
-          <label class="form-label">Domínio</label>
+          <label class="form-label">URL do seu site (landing page)</label>
+          <input type="url" class="form-input" id="siteTargetUrl" placeholder="https://meusite.com/landing" required>
+          <small style="color: var(--text-secondary); font-size: 12px;">Link real da sua página. Quem for permitido vai para esse link.</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Domínio (opcional)</label>
           <input type="text" class="form-input" id="siteDomain" placeholder="Ex: meuproduto.com">
         </div>
         <div class="form-group">
-          <label class="form-label">URL de Redirecionamento</label>
-          <input type="text" class="form-input" id="siteRedirectUrl" value="https://www.google.com/" placeholder="Para onde redirecionar visitantes bloqueados">
+          <label class="form-label">URL de Redirecionamento (quando bloquear)</label>
+          <input type="text" class="form-input" id="siteRedirectUrl" value="https://www.google.com/" placeholder="Para onde mandar quem for bloqueado">
         </div>
         <h4 style="margin: 25px 0 15px;">Regras de Bloqueio</h4>
         <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Padrão: <strong>apenas Brasil (BR)</strong>; bloquear desktops, Facebook, bots, VPN/proxy e DevTools.</p>
@@ -502,10 +530,12 @@
             <div class="site-card-stat"><div class="site-card-stat-value" style="color: var(--success)">${(s.total_visits || 0) - (s.blocked_visits || 0)}</div><div class="site-card-stat-label">Permitidos</div></div>
           </div>
           <div style="margin-top: 15px;">
-            <div class="code-block" style="font-size: 11px; padding: 10px;">
-              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copyToClipboard(\`<script src='${window.location.origin}/t/${s.site_id}.js'><\\/script>\`)"><i class="ri-file-copy-line"></i></button>
-              &lt;script src="${window.location.origin}/t/${s.site_id}.js"&gt;&lt;/script&gt;
+            <div class="form-label" style="margin-bottom: 6px;">🔗 Link para usar nos Ads (Meta Ads, etc.)</div>
+            <div class="code-block" style="font-size: 12px; padding: 10px;">
+              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="if ('${s.link_code || ''}') copyToClipboard('${window.location.origin}/go/${s.link_code || ''}'); else alert('Edite o site e salve a URL do seu site para gerar o link.');"><i class="ri-file-copy-line"></i></button>
+              ${s.link_code ? (window.location.origin + '/go/' + s.link_code) : 'Salve a URL do seu site e edite o site para gerar o link.'}
             </div>
+            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Use esse link como <strong>URL de destino</strong> nos seus anúncios. Não precisa colocar script no seu site.</p>
           </div>
         </div>
       `).join('');
@@ -516,6 +546,7 @@
       document.getElementById('editSiteId').value = '';
       document.getElementById('siteName').value = '';
       document.getElementById('siteDomain').value = '';
+      document.getElementById('siteTargetUrl').value = '';
       document.getElementById('siteRedirectUrl').value = 'https://www.google.com/';
       document.getElementById('siteBlockDesktop').checked = true;
       document.getElementById('siteBlockFacebook').checked = true;
@@ -534,6 +565,7 @@
       document.getElementById('editSiteId').value = siteId;
       document.getElementById('siteName').value = site.name;
       document.getElementById('siteDomain').value = site.domain || '';
+      document.getElementById('siteTargetUrl').value = site.target_url || '';
       document.getElementById('siteRedirectUrl').value = site.redirect_url || 'https://www.google.com/';
       document.getElementById('siteBlockDesktop').checked = site.block_desktop;
       document.getElementById('siteBlockFacebook').checked = site.block_facebook_library;
@@ -550,6 +582,7 @@
       const data = {
         name: document.getElementById('siteName').value,
         domain: document.getElementById('siteDomain').value,
+        target_url: document.getElementById('siteTargetUrl').value,
         redirect_url: document.getElementById('siteRedirectUrl').value,
         block_desktop: document.getElementById('siteBlockDesktop').checked,
         block_facebook_library: document.getElementById('siteBlockFacebook').checked,
@@ -562,6 +595,7 @@
       };
       
       if (!data.name) { alert('Digite um nome para o site'); return; }
+      if (!data.target_url || !data.target_url.trim()) { alert('Digite a URL do seu site (landing page)'); return; }
       
       try {
         if (siteId) {
@@ -835,6 +869,34 @@
 
     // Script section
     function loadScriptSection() { updateSiteSelectors(); }
+
+    async function generateLinkFromUrl() {
+      const url = (document.getElementById('quickTargetUrl').value || '').trim();
+      if (!url) { alert('Cole a URL da sua landing page no campo acima.'); return; }
+      const name = (document.getElementById('quickSiteName').value || '').trim() || ('Landing ' + new Date().toLocaleDateString('pt-BR'));
+      try {
+        const res = await fetch('/api/sites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            target_url: url,
+            redirect_url: 'https://www.google.com/',
+            allowed_countries: 'BR'
+          })
+        });
+        if (!res.ok) throw new Error('Erro ao criar');
+        const site = await res.json();
+        const link = window.location.origin + '/go/' + site.link_code;
+        await loadSites();
+        document.getElementById('generatedLinkText').textContent = link;
+        document.getElementById('generatedLinkBox').style.display = 'block';
+        document.getElementById('scriptSiteSelector').value = site.site_id;
+        updateScriptCode();
+      } catch (e) {
+        alert('Erro ao gerar link. Tente novamente.');
+      }
+    }
     
     function updateScriptCode() {
       const siteId = document.getElementById('scriptSiteSelector').value;
@@ -842,7 +904,12 @@
       const code = document.getElementById('scriptCode');
       if (!siteId) { block.style.display = 'none'; return; }
       block.style.display = 'block';
-      code.textContent = `<script src="${window.location.origin}/t/${siteId}.js"></scr` + `ipt>`;
+      const site = sites.find(s => s.site_id === siteId);
+      if (site && site.link_code) {
+        code.textContent = window.location.origin + '/go/' + site.link_code;
+      } else {
+        code.textContent = 'Salve a URL do seu site e edite o site para gerar o link.';
+      }
     }
 
     function copyScript() {

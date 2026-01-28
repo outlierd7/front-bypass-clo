@@ -91,20 +91,24 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS sites (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       site_id TEXT UNIQUE,
+      link_code TEXT UNIQUE,
       name TEXT,
       domain TEXT,
+      target_url TEXT,
       redirect_url TEXT DEFAULT 'https://www.google.com/',
       block_desktop INTEGER DEFAULT 1,
       block_facebook_library INTEGER DEFAULT 1,
       block_bots INTEGER DEFAULT 1,
       block_vpn INTEGER DEFAULT 0,
       block_devtools INTEGER DEFAULT 1,
-      allowed_countries TEXT DEFAULT '',
+      allowed_countries TEXT DEFAULT 'BR',
       blocked_countries TEXT DEFAULT '',
       is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  try { db.run('ALTER TABLE sites ADD COLUMN link_code TEXT'); } catch (e) {}
+  try { db.run('ALTER TABLE sites ADD COLUMN target_url TEXT'); } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS visitors (
@@ -317,15 +321,25 @@ app.get('/api/sites', (req, res) => {
   res.json(sites);
 });
 
-// API: Criar site (padrão: apenas Brasil permitido)
+function generateLinkCode() {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  if (get('SELECT 1 FROM sites WHERE link_code = ?', [code])) return generateLinkCode();
+  return code;
+}
+
+// API: Criar site (padrão: apenas Brasil; gera link para usar nos Ads)
 app.post('/api/sites', (req, res) => {
-  const { name, domain, redirect_url, allowed_countries } = req.body;
+  const { name, domain, target_url, redirect_url, allowed_countries } = req.body;
   const siteId = 'site_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  const linkCode = generateLinkCode();
   const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
+  const target = (target_url || '').trim() || null;
   
   try {
-    run(`INSERT INTO sites (site_id, name, domain, redirect_url, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, created_at) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, 1, datetime('now'))`,
-      [siteId, name, domain, redirect_url || 'https://www.google.com/', countries]);
+    run(`INSERT INTO sites (site_id, link_code, name, domain, target_url, redirect_url, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, datetime('now'))`,
+      [siteId, linkCode, name, domain, target, redirect_url || 'https://www.google.com/', countries]);
     
     const site = get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
@@ -334,19 +348,22 @@ app.post('/api/sites', (req, res) => {
   }
 });
 
-// API: Atualizar site
+// API: Atualizar site (se não tiver link_code, gera um)
 app.put('/api/sites/:siteId', (req, res) => {
   const data = req.body;
   try {
+    const existing = get('SELECT link_code FROM sites WHERE site_id = ?', [req.params.siteId]);
+    let linkCode = existing?.link_code;
+    if (!linkCode) linkCode = generateLinkCode();
     run(`
       UPDATE sites SET
-        name = ?, domain = ?, redirect_url = ?,
+        name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?,
         block_desktop = ?, block_facebook_library = ?, block_bots = ?,
         block_vpn = ?, block_devtools = ?,
         allowed_countries = ?, blocked_countries = ?, is_active = ?
       WHERE site_id = ?
     `, [
-      data.name, data.domain, data.redirect_url,
+      data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
       data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0,
@@ -476,7 +493,74 @@ app.get('/api/export', (req, res) => {
   }
 });
 
-// Servir script dinâmico por site
+// ========== LINK PARA ADS: /go/:code ==========
+// Você cola seu link no painel → o sistema gera um novo link → use esse link nos anúncios.
+// Quem clica passa aqui: checamos (desktop, bot, país, etc.) e redirecionamos para seu site ou para a URL de bloqueio.
+app.get('/go/:code', async (req, res) => {
+  const code = (req.params.code || '').toLowerCase();
+  const site = get('SELECT * FROM sites WHERE link_code = ? AND is_active = 1', [code]);
+  if (!site || !site.target_url) {
+    return res.redirect(302, 'https://www.google.com/');
+  }
+
+  const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').split(',')[0].trim() || 'unknown';
+  const userAgent = req.headers['user-agent'] || '';
+  const referer = req.headers['referer'] || req.headers['referrer'] || '';
+  const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+  const parser = new UAParser(userAgent);
+  const ua = parser.getResult();
+  const deviceType = (ua.device && ua.device.type) ? ua.device.type : (userAgent.toLowerCase().match(/mobile|android|iphone|ipad/) ? 'mobile' : 'desktop');
+
+  let country = null;
+  try {
+    const geoRes = await fetch(`https://ipapi.co/${ip}/json/`, { signal: AbortSignal.timeout(3000) });
+    if (geoRes.ok) {
+      const geo = await geoRes.json();
+      country = geo.country_code || null;
+    }
+  } catch (e) {}
+
+  const allowedList = (site.allowed_countries || 'BR').split(',').map(c => c.trim()).filter(Boolean);
+  const blockedList = (site.blocked_countries || '').split(',').map(c => c.trim()).filter(Boolean);
+
+  function isDesktop() {
+    const u = userAgent.toLowerCase();
+    return !/mobile|android|iphone|ipad|webos|blackberry|iemobile|opera mini/i.test(u);
+  }
+  function isFromFacebook() {
+    const r = referer.toLowerCase();
+    const u = fullUrl.toLowerCase();
+    return r.includes('facebook.com') || r.includes('fb.com') || u.includes('fbclid=');
+  }
+  function isBot() {
+    const u = userAgent.toLowerCase();
+    const bots = ['bot', 'crawler', 'spider', 'googlebot', 'facebookexternalhit', 'facebot', 'slurp', 'duckduckbot', 'bingbot', 'yandex', 'curl', 'wget', 'python', 'java', 'headless'];
+    return bots.some(b => u.includes(b)) || !!req.headers['x-purpose'];
+  }
+
+  let blockReason = null;
+  if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
+  else if (site.block_facebook_library && isFromFacebook() && isDesktop()) blockReason = 'Biblioteca Facebook';
+  else if (site.block_bots && isBot()) blockReason = 'Bot detectado';
+  else if (country && allowedList.length && !allowedList.includes(country)) blockReason = `País não permitido: ${country}`;
+  else if (country && blockedList.includes(country)) blockReason = `País bloqueado: ${country}`;
+
+  const wasBlocked = !!blockReason;
+
+  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, device_type, browser, os, was_blocked, block_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [site.site_id, ip, userAgent, referer, fullUrl, country, deviceType, ua.browser?.name, ua.os?.name, wasBlocked ? 1 : 0, blockReason]);
+
+  if (wasBlocked) {
+    return res.redirect(302, site.redirect_url || 'https://www.google.com/');
+  }
+
+  let dest = site.target_url;
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
+  if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
+  return res.redirect(302, dest);
+});
+
+// Servir script dinâmico por site (opcional – modo antigo)
 app.get('/t/:siteId.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Cache-Control', 'no-cache');
@@ -500,9 +584,9 @@ initDb().then(() => {
 ║  📊 Painel de controle: http://localhost:${PORT}             ║
 ║                                                           ║
 ║  📝 Como usar:                                            ║
-║     1. Acesse o painel e crie um novo site                ║
-║     2. Copie o script gerado                              ║
-║     3. Cole no <head> da sua landing page                 ║
+║     1. Acesse o painel → Link para Ads                    ║
+║     2. Cole a URL da sua landing page → Gerar link        ║
+║     3. Use o link gerado como URL de destino nos Ads      ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
