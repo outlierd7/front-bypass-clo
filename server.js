@@ -614,13 +614,23 @@ app.get('/go/:code', async (req, res) => {
 
   const wasBlocked = !!blockReason;
 
-  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0]);
+  // UTMs e parâmetros dos Ads (vêm na URL do clique) – repassados para o link de oferta no redirect
+  const utm_source = (req.query.utm_source || '').trim() || null;
+  const utm_medium = (req.query.utm_medium || '').trim() || null;
+  const utm_campaign = (req.query.utm_campaign || '').trim() || null;
+  const utm_term = (req.query.utm_term || '').trim() || null;
+  const utm_content = (req.query.utm_content || '').trim() || null;
+  const fbclid = (req.query.fbclid || '').trim() || null;
+  const facebookParams = fbclid ? JSON.stringify({ fbclid }) : null;
+
+  run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebook_params, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebookParams]);
 
   if (wasBlocked) {
     return res.redirect(302, site.redirect_url || 'https://www.google.com/');
   }
 
+  // Redireciona para a oferta com a mesma query string (UTMs, fbclid, etc.) para a landing receber
   let dest = site.target_url;
   const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
   if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;

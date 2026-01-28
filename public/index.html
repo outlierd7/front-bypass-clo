@@ -245,8 +245,8 @@
       <div class="card"><div class="card-body">
         <div class="table-container">
           <table>
-            <thead><tr><th>Data</th><th>IP</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>Navegador</th><th>Ações</th></tr></thead>
-            <tbody id="visitorsTable"><tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr></tbody>
+            <thead><tr><th>Data</th><th>IP</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>UTM Source</th><th>UTM Medium</th><th>UTM Campaign</th><th>Navegador</th><th>Ações</th></tr></thead>
+            <tbody id="visitorsTable"><tr><td colspan="11" class="loading"><div class="spinner"></div></td></tr></tbody>
           </table>
         </div>
         <div class="pagination" id="pagination"></div>
@@ -709,12 +709,12 @@
     async function loadVisitors() {
       const siteId = document.getElementById('visitorsSiteFilter').value;
       const tbody = document.getElementById('visitorsTable');
-      tbody.innerHTML = '<tr><td colspan="8" class="loading"><div class="spinner"></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="loading"><div class="spinner"></div></td></tr>';
       try {
         const res = await fetch(`/api/visitors?page=${currentPage}&filter=${currentFilter}&site=${siteId}`);
         const data = await res.json();
         if (data.visitors.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante encontrado</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante encontrado</td></tr>';
           document.getElementById('pagination').innerHTML = '';
           return;
         }
@@ -726,6 +726,9 @@
             <td>${v.was_blocked ? '<span class="badge badge-danger"><i class="ri-close-line"></i> Bloqueado</span>' : '<span class="badge badge-success"><i class="ri-check-line"></i> OK</span>'}${v.is_bot ? ' <span class="badge badge-warning">Bot</span>' : ''}</td>
             <td>${v.country || '-'}</td>
             <td><i class="ri-${v.device_type === 'mobile' ? 'smartphone' : 'computer'}-line"></i> ${v.device_type || 'desktop'}</td>
+            <td title="${(v.utm_source || '').replace(/"/g, '')}">${v.utm_source ? (v.utm_source.length > 12 ? v.utm_source.substring(0, 12) + '…' : v.utm_source) : '-'}</td>
+            <td title="${(v.utm_medium || '').replace(/"/g, '')}">${v.utm_medium ? (v.utm_medium.length > 12 ? v.utm_medium.substring(0, 12) + '…' : v.utm_medium) : '-'}</td>
+            <td title="${(v.utm_campaign || '').replace(/"/g, '')}">${v.utm_campaign ? (v.utm_campaign.length > 12 ? v.utm_campaign.substring(0, 12) + '…' : v.utm_campaign) : '-'}</td>
             <td>${v.browser || '-'}</td>
             <td><button class="btn btn-secondary btn-sm" onclick="viewVisitor(${v.id})"><i class="ri-eye-line"></i></button></td>
           </tr>
@@ -742,7 +745,7 @@
           pag += `<button class="page-btn" ${currentPage >= data.pages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})"><i class="ri-arrow-right-line"></i></button>`;
         }
         document.getElementById('pagination').innerHTML = pag;
-      } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="8" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
+      } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="11" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
     }
 
     function goToPage(p) { currentPage = p; loadVisitors(); }
@@ -856,10 +859,13 @@
               <div class="info-item"><span class="info-label">Bot?</span><span class="info-value">${v.is_bot?'⚠️ Sim':'Não'}</span></div>
               <div class="info-item"><span class="info-label">Site</span><span class="info-value">${v.site_id||'default'}</span></div>
             </div>
-            <div><h4 style="margin-bottom:15px;color:var(--accent)">🔗 Rastreamento</h4>
+            <div><h4 style="margin-bottom:15px;color:var(--accent)">🔗 Rastreamento / UTMs (Ads)</h4>
               <div class="info-item"><span class="info-label">Referrer</span><span class="info-value">${v.referrer||'-'}</span></div>
               <div class="info-item"><span class="info-label">UTM Source</span><span class="info-value">${v.utm_source||'-'}</span></div>
+              <div class="info-item"><span class="info-label">UTM Medium</span><span class="info-value">${v.utm_medium||'-'}</span></div>
               <div class="info-item"><span class="info-label">UTM Campaign</span><span class="info-value">${v.utm_campaign||'-'}</span></div>
+              <div class="info-item"><span class="info-label">UTM Term</span><span class="info-value">${v.utm_term||'-'}</span></div>
+              <div class="info-item"><span class="info-label">UTM Content</span><span class="info-value">${v.utm_content||'-'}</span></div>
               <div class="info-item"><span class="info-label">Data (Brasília)</span><span class="info-value">${formatDateTimeBR(v.created_at)}</span></div>
             </div>
           </div>
