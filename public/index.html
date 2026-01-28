@@ -163,7 +163,10 @@
     <!-- Dashboard -->
     <section id="dashboard" class="section active">
       <div class="header">
-        <h2>Dashboard</h2>
+        <div>
+          <h2>Dashboard</h2>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">Horário de Brasília (BRT) · Atualização automática a cada 30s</p>
+        </div>
         <div class="header-actions">
           <select class="form-select site-selector" id="dashboardSiteFilter" onchange="refreshStats()">
             <option value="all">Todos os Sites</option>
@@ -174,7 +177,7 @@
             <button class="period-btn" data-period="7d">7d</button>
             <button class="period-btn" data-period="30d">30d</button>
           </div>
-          <button class="btn btn-primary" onclick="refreshStats()"><i class="ri-refresh-line"></i> Atualizar</button>
+          <button class="btn btn-primary" onclick="refreshStats(); loadLastVisits();"><i class="ri-refresh-line"></i> Atualizar</button>
         </div>
       </div>
 
@@ -194,6 +197,21 @@
       <div class="charts-grid">
         <div class="card"><div class="card-header"><h3 class="card-title"><i class="ri-global-line"></i> Por País</h3></div><div class="card-body"><div class="chart-container"><canvas id="chartCountry"></canvas></div></div></div>
         <div class="card"><div class="card-header"><h3 class="card-title"><i class="ri-prohibited-line"></i> Motivos de Bloqueio</h3></div><div class="card-body"><div class="chart-container"><canvas id="chartBlockReasons"></canvas></div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><i class="ri-time-line"></i> Últimos acessos (horário Brasília)</h3>
+          <a href="#" class="btn btn-secondary btn-sm" onclick="document.querySelector('[data-section=visitors]').click(); return false;">Ver todos</a>
+        </div>
+        <div class="card-body">
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Data/Hora (BRT)</th><th>Site</th><th>Status</th><th>País</th><th>Dispositivo</th><th>Motivo</th><th>Ações</th></tr></thead>
+              <tbody id="lastVisitsTable"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -342,18 +360,20 @@
           <input type="text" class="form-input" id="siteRedirectUrl" value="https://www.google.com/" placeholder="Para onde redirecionar visitantes bloqueados">
         </div>
         <h4 style="margin: 25px 0 15px;">Regras de Bloqueio</h4>
+        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Padrão: <strong>apenas Brasil (BR)</strong>; bloquear desktops, Facebook, bots, VPN/proxy e DevTools.</p>
         <div class="info-grid">
           <div class="info-item"><span class="info-label">Bloquear Desktops</span><label class="switch"><input type="checkbox" id="siteBlockDesktop" checked><span class="slider"></span></label></div>
           <div class="info-item"><span class="info-label">Bloquear Biblioteca Facebook</span><label class="switch"><input type="checkbox" id="siteBlockFacebook" checked><span class="slider"></span></label></div>
           <div class="info-item"><span class="info-label">Bloquear Bots</span><label class="switch"><input type="checkbox" id="siteBlockBots" checked><span class="slider"></span></label></div>
+          <div class="info-item"><span class="info-label">Bloquear VPN/Proxy</span><label class="switch"><input type="checkbox" id="siteBlockVpn" checked><span class="slider"></span></label></div>
           <div class="info-item"><span class="info-label">Bloquear DevTools</span><label class="switch"><input type="checkbox" id="siteBlockDevtools" checked><span class="slider"></span></label></div>
         </div>
         <div class="form-group" style="margin-top: 20px;">
-          <label class="form-label">Países Permitidos (ex: BR ou BR,PT – padrão: apenas Brasil)</label>
+          <label class="form-label">Países Permitidos (padrão: apenas BR – Brasil)</label>
           <input type="text" class="form-input" id="siteAllowedCountries" placeholder="BR" value="BR">
         </div>
         <div class="form-group">
-          <label class="form-label">Países Bloqueados (ex: US,UK)</label>
+          <label class="form-label">Países Bloqueados (ex: US,UK – vazio = nenhum)</label>
           <input type="text" class="form-input" id="siteBlockedCountries" placeholder="Deixe vazio para não bloquear">
         </div>
         <div style="display: flex; gap: 10px; margin-top: 25px;">
@@ -380,6 +400,23 @@
     let blockedPage = 1;
     let charts = {};
     let sites = [];
+
+    // Horário de Brasília (America/Sao_Paulo) – datas da API são tratadas como UTC
+    const TZ_BR = 'America/Sao_Paulo';
+    function toDateBR(d) {
+      if (!d) return null;
+      var s = typeof d === 'string' ? d : d;
+      if (typeof s === 'string' && !/Z|[+-]\d{2}:?\d{2}$/.test(s)) s = s.replace(' ', 'T') + 'Z';
+      return new Date(s);
+    }
+    function formatDateBR(d) {
+      var date = toDateBR(d);
+      return date ? date.toLocaleString('pt-BR', { timeZone: TZ_BR, dateStyle: 'short', timeStyle: 'short' }) : '-';
+    }
+    function formatDateTimeBR(d) {
+      var date = toDateBR(d);
+      return date ? date.toLocaleString('pt-BR', { timeZone: TZ_BR, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+    }
 
     // Navigation
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -483,6 +520,7 @@
       document.getElementById('siteBlockDesktop').checked = true;
       document.getElementById('siteBlockFacebook').checked = true;
       document.getElementById('siteBlockBots').checked = true;
+      document.getElementById('siteBlockVpn').checked = true;
       document.getElementById('siteBlockDevtools').checked = true;
       document.getElementById('siteAllowedCountries').value = 'BR';
       document.getElementById('siteBlockedCountries').value = '';
@@ -500,8 +538,9 @@
       document.getElementById('siteBlockDesktop').checked = site.block_desktop;
       document.getElementById('siteBlockFacebook').checked = site.block_facebook_library;
       document.getElementById('siteBlockBots').checked = site.block_bots;
+      document.getElementById('siteBlockVpn').checked = site.block_vpn;
       document.getElementById('siteBlockDevtools').checked = site.block_devtools;
-      document.getElementById('siteAllowedCountries').value = site.allowed_countries || '';
+      document.getElementById('siteAllowedCountries').value = site.allowed_countries || 'BR';
       document.getElementById('siteBlockedCountries').value = site.blocked_countries || '';
       document.getElementById('siteModal').classList.add('active');
     }
@@ -516,7 +555,7 @@
         block_facebook_library: document.getElementById('siteBlockFacebook').checked,
         block_bots: document.getElementById('siteBlockBots').checked,
         block_devtools: document.getElementById('siteBlockDevtools').checked,
-        block_vpn: false,
+        block_vpn: document.getElementById('siteBlockVpn').checked,
         allowed_countries: document.getElementById('siteAllowedCountries').value,
         blocked_countries: document.getElementById('siteBlockedCountries').value,
         is_active: true
@@ -558,7 +597,33 @@
         document.getElementById('statMobile').textContent = stats.mobile.toLocaleString();
         document.getElementById('statDesktop').textContent = stats.desktop.toLocaleString();
         updateCharts(stats);
+        loadLastVisits();
       } catch (e) { console.error(e); }
+    }
+
+    async function loadLastVisits() {
+      const siteId = document.getElementById('dashboardSiteFilter').value;
+      const tbody = document.getElementById('lastVisitsTable');
+      if (!tbody) return;
+      try {
+        const res = await fetch(`/api/visitors?page=1&limit=10&filter=all&site=${siteId}`);
+        const data = await res.json();
+        if (data.visitors.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-secondary)">Nenhum acesso ainda</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.visitors.map(v => `
+          <tr>
+            <td>${formatDateTimeBR(v.created_at)}</td>
+            <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
+            <td>${v.was_blocked ? '<span class="badge badge-danger">Bloqueado</span>' : '<span class="badge badge-success">Permitido</span>'}</td>
+            <td>${v.country || '-'}</td>
+            <td><i class="ri-${v.device_type === 'mobile' ? 'smartphone' : 'computer'}-line"></i> ${v.device_type || 'desktop'}</td>
+            <td title="${(v.block_reason || '').replace(/"/g, '')}">${v.block_reason ? (v.block_reason.length > 25 ? v.block_reason.substring(0, 25) + '...' : v.block_reason) : '-'}</td>
+            <td><button class="btn btn-secondary btn-sm" onclick="viewVisitor(${v.id})"><i class="ri-eye-line"></i></button></td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Erro ao carregar</td></tr>'; }
     }
 
     function updateCharts(stats) {
@@ -620,7 +685,7 @@
         }
         tbody.innerHTML = data.visitors.map(v => `
           <tr>
-            <td>${new Date(v.created_at).toLocaleString('pt-BR')}</td>
+            <td>${formatDateBR(v.created_at)}</td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
             <td>${v.was_blocked ? '<span class="badge badge-danger"><i class="ri-close-line"></i> Bloqueado</span>' : '<span class="badge badge-success"><i class="ri-check-line"></i> OK</span>'}${v.is_bot ? ' <span class="badge badge-warning">Bot</span>' : ''}</td>
             <td>${v.country || '-'}</td>
@@ -666,7 +731,7 @@
         }
         tbody.innerHTML = data.visitors.map(v => `
           <tr>
-            <td>${new Date(v.created_at).toLocaleString('pt-BR')}</td>
+            <td>${formatDateBR(v.created_at)}</td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
             <td>${v.country || '-'}</td>
             <td><i class="ri-${v.device_type === 'mobile' ? 'smartphone' : 'computer'}-line"></i> ${v.device_type || 'desktop'}</td>
@@ -705,7 +770,7 @@
         }
         tbody.innerHTML = data.visitors.map(v => `
           <tr>
-            <td>${new Date(v.created_at).toLocaleString('pt-BR')}</td>
+            <td>${formatDateBR(v.created_at)}</td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
             <td>${v.country || '-'}</td>
             <td><span class="badge badge-danger" title="${(v.block_reason || '').replace(/"/g, '')}">${v.block_reason ? (v.block_reason.length > 35 ? v.block_reason.substring(0, 35) + '...' : v.block_reason) : '-'}</span></td>
@@ -758,7 +823,7 @@
               <div class="info-item"><span class="info-label">Referrer</span><span class="info-value">${v.referrer||'-'}</span></div>
               <div class="info-item"><span class="info-label">UTM Source</span><span class="info-value">${v.utm_source||'-'}</span></div>
               <div class="info-item"><span class="info-label">UTM Campaign</span><span class="info-value">${v.utm_campaign||'-'}</span></div>
-              <div class="info-item"><span class="info-label">Data</span><span class="info-value">${new Date(v.created_at).toLocaleString('pt-BR')}</span></div>
+              <div class="info-item"><span class="info-label">Data (Brasília)</span><span class="info-value">${formatDateTimeBR(v.created_at)}</span></div>
             </div>
           </div>
           <div style="margin-top:20px"><h4 style="margin-bottom:10px;color:var(--accent)">User-Agent</h4><div class="code-block" style="font-size:11px;word-break:break-all">${v.user_agent||'-'}</div></div>

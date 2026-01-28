@@ -324,7 +324,7 @@ app.post('/api/sites', (req, res) => {
   const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
   
   try {
-    run(`INSERT INTO sites (site_id, name, domain, redirect_url, allowed_countries, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+    run(`INSERT INTO sites (site_id, name, domain, redirect_url, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, created_at) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, 1, datetime('now'))`,
       [siteId, name, domain, redirect_url || 'https://www.google.com/', countries]);
     
     const site = get('SELECT * FROM sites WHERE site_id = ?', [siteId]);

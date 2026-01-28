@@ -310,11 +310,43 @@
     return { block: false, reason: null };
   }
 
+  // 📤 Enviar visita bloqueada (sync) para aparecer no painel – fire-and-forget
+  function sendBlockedVisitSync(reason) {
+    var device = getDeviceInfo();
+    var trackingParams = getTrackingParams();
+    var payload = {
+      siteId: CONFIG.SITE_ID,
+      visitorId: generateVisitorId(),
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      referrer: document.referrer || '',
+      pageUrl: window.location.href,
+      pageTitle: document.title,
+      utm: trackingParams.utm,
+      facebookParams: trackingParams.facebook,
+      wasBlocked: true,
+      blockReason: reason,
+      isBot: detectBot().isBot,
+      botReason: detectBot().reason,
+      deviceType: device.type,
+      geo: null
+    };
+    try {
+      var url = CONFIG.SERVER_URL + '/api/track';
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+      } else {
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true });
+      }
+    } catch (e) {}
+  }
+
   // 🚀 INICIALIZAÇÃO
   async function init() {
-    // 1) Decisão instantânea: se for bloquear, redireciona ANTES de mostrar qualquer coisa
+    // 1) Decisão instantânea: se for bloquear, envia para o painel e redireciona
     var syncCheck = shouldBlockSync();
     if (syncCheck.block) {
+      sendBlockedVisitSync(syncCheck.reason);
       window.location.replace(CONFIG.REDIRECT_URL);
       return;
     }
