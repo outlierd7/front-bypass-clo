@@ -187,7 +187,7 @@ app.get('/api/config/:siteId', (req, res) => {
       block_facebook_library: 1,
       block_bots: 1,
       block_devtools: 1,
-      allowed_countries: '',
+      allowed_countries: 'BR',
       blocked_countries: ''
     });
   }
@@ -317,14 +317,15 @@ app.get('/api/sites', (req, res) => {
   res.json(sites);
 });
 
-// API: Criar site
+// API: Criar site (padrão: apenas Brasil permitido)
 app.post('/api/sites', (req, res) => {
-  const { name, domain, redirect_url } = req.body;
+  const { name, domain, redirect_url, allowed_countries } = req.body;
   const siteId = 'site_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
   
   try {
-    run(`INSERT INTO sites (site_id, name, domain, redirect_url, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
-      [siteId, name, domain, redirect_url || 'https://www.google.com/']);
+    run(`INSERT INTO sites (site_id, name, domain, redirect_url, allowed_countries, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+      [siteId, name, domain, redirect_url || 'https://www.google.com/', countries]);
     
     const site = get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
