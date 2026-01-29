@@ -526,6 +526,17 @@
 
     function getBaseUrl() { return (baseUrlOrOrigin || '').replace(/\/$/, '') || window.location.origin; }
 
+    function checkAuth(res) {
+      if (res && res.status === 401) { window.location.href = '/login'; return true; }
+      return false;
+    }
+
+    async function apiGet(url) {
+      const res = await fetch(url, { credentials: 'include' });
+      if (checkAuth(res)) return null;
+      return res;
+    }
+
     // Horário de Brasília (America/Sao_Paulo) – datas da API são tratadas como UTC
     const TZ_BR = 'America/Sao_Paulo';
     function toDateBR(d) {
@@ -583,14 +594,17 @@
     // Sites
     async function loadSites() {
       try {
-        const res = await fetch('/api/sites');
-        sites = await res.json();
+        const res = await apiGet('/api/sites');
+        if (!res) return;
+        const data = await res.json();
+        sites = Array.isArray(data) ? data : [];
         updateSiteSelectors();
         renderSitesList();
-      } catch (e) { console.error(e); }
+      } catch (e) { sites = []; updateSiteSelectors(); renderSitesList(); }
     }
 
     function updateSiteSelectors() {
+      if (!Array.isArray(sites)) sites = [];
       const selectors = ['dashboardSiteFilter', 'visitorsSiteFilter', 'reportsSiteFilter', 'scriptSiteSelector'];
       selectors.forEach(id => {
         const el = document.getElementById(id);
@@ -698,9 +712,9 @@
       
       try {
         if (siteId) {
-          await fetch(`/api/sites/${siteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          await fetch(`/api/sites/${siteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(data) });
         } else {
-          await fetch('/api/sites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          await fetch('/api/sites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(data) });
         }
         closeSiteModal();
         loadSites();
@@ -710,7 +724,7 @@
     async function deleteSite(siteId) {
       if (!confirm('Tem certeza? Todos os dados de visitantes deste site serão perdidos!')) return;
       try {
-        await fetch(`/api/sites/${siteId}`, { method: 'DELETE' });
+        await fetch(`/api/sites/${siteId}`, { method: 'DELETE', credentials: 'include' });
         loadSites();
       } catch (e) { alert('Erro ao deletar site'); }
     }
@@ -719,33 +733,38 @@
 
     // Stats
     async function refreshStats() {
-      const siteId = document.getElementById('dashboardSiteFilter').value;
+      const siteId = document.getElementById('dashboardSiteFilter') ? document.getElementById('dashboardSiteFilter').value : 'all';
       try {
-        const res = await fetch(`/api/stats?period=${currentPeriod}&site=${siteId}`);
+        const res = await apiGet(`/api/stats?period=${currentPeriod}&site=${siteId}`);
+        if (!res) return;
         const stats = await res.json();
-        document.getElementById('statTotal').textContent = stats.total.toLocaleString();
-        document.getElementById('statAllowed').textContent = stats.allowed.toLocaleString();
-        document.getElementById('statBlocked').textContent = stats.blocked.toLocaleString();
-        document.getElementById('statBots').textContent = stats.bots.toLocaleString();
-        document.getElementById('statMobile').textContent = stats.mobile.toLocaleString();
-        document.getElementById('statDesktop').textContent = stats.desktop.toLocaleString();
+        if (!stats || typeof stats !== 'object') return;
+        const n = (v) => (v == null || isNaN(v) ? 0 : Number(v));
+        document.getElementById('statTotal').textContent = (n(stats.total)).toLocaleString();
+        document.getElementById('statAllowed').textContent = (n(stats.allowed)).toLocaleString();
+        document.getElementById('statBlocked').textContent = (n(stats.blocked)).toLocaleString();
+        document.getElementById('statBots').textContent = (n(stats.bots)).toLocaleString();
+        document.getElementById('statMobile').textContent = (n(stats.mobile)).toLocaleString();
+        document.getElementById('statDesktop').textContent = (n(stats.desktop)).toLocaleString();
         updateCharts(stats);
         loadLastVisits();
-      } catch (e) { console.error(e); }
+      } catch (e) { }
     }
 
     async function loadLastVisits() {
-      const siteId = document.getElementById('dashboardSiteFilter').value;
+      const siteId = document.getElementById('dashboardSiteFilter') ? document.getElementById('dashboardSiteFilter').value : 'all';
       const tbody = document.getElementById('lastVisitsTable');
       if (!tbody) return;
       try {
-        const res = await fetch(`/api/visitors?page=1&limit=10&filter=all&site=${siteId}`);
+        const res = await apiGet(`/api/visitors?page=1&limit=10&filter=all&site=${siteId}`);
+        if (!res) return;
         const data = await res.json();
-        if (data.visitors.length === 0) {
+        const list = Array.isArray(data && data.visitors) ? data.visitors : [];
+        if (list.length === 0) {
           tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-secondary)">Nenhum acesso ainda</td></tr>';
           return;
         }
-        tbody.innerHTML = data.visitors.map(v => `
+        tbody.innerHTML = list.map(v => `
           <tr>
             <td>${formatDateTimeBR(v.created_at)}</td>
             <td><code style="font-size:11px">${v.ip || '-'}</code></td>
@@ -761,11 +780,12 @@
     }
 
     function updateCharts(stats) {
+      if (!stats || typeof stats !== 'object') return;
       const colors = { line: ['#00d9a5', '#e94560'], pie: ['#e94560', '#00d9a5', '#ffc107', '#17a2b8', '#6f42c1', '#fd7e14'] };
       const chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a0a0b0' } } } };
-      
-      // Hourly
-      const hourlyData = stats.byHour.reverse();
+      const arr = (x) => Array.isArray(x) ? x : [];
+      const byHour = arr(stats.byHour);
+      const hourlyData = byHour.slice().reverse();
       if (charts.hourly) charts.hourly.destroy();
       charts.hourly = new Chart(document.getElementById('chartHourly'), {
         type: 'line',
@@ -783,7 +803,7 @@
       if (charts.browser) charts.browser.destroy();
       charts.browser = new Chart(document.getElementById('chartBrowser'), {
         type: 'doughnut',
-        data: { labels: stats.byBrowser.map(b => b.browser || 'N/A'), datasets: [{ data: stats.byBrowser.map(b => b.count), backgroundColor: colors.pie }] },
+        data: { labels: arr(stats.byBrowser).map(b => b.browser || 'N/A'), datasets: [{ data: arr(stats.byBrowser).map(b => b.count), backgroundColor: colors.pie }] },
         options: { ...chartOpts, plugins: { legend: { position: 'right', labels: { color: '#a0a0b0' } } } }
       });
 
@@ -791,7 +811,7 @@
       if (charts.country) charts.country.destroy();
       charts.country = new Chart(document.getElementById('chartCountry'), {
         type: 'bar',
-        data: { labels: stats.byCountry.map(c => c.country || 'N/A'), datasets: [{ label: 'Visitas', data: stats.byCountry.map(c => c.count), backgroundColor: '#e94560' }] },
+        data: { labels: arr(stats.byCountry).map(c => c.country || 'N/A'), datasets: [{ label: 'Visitas', data: arr(stats.byCountry).map(c => c.count), backgroundColor: '#e94560' }] },
         options: { ...chartOpts, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#a0a0b0' }, grid: { color: '#2a2a4a' } }, y: { ticks: { color: '#a0a0b0' }, grid: { color: '#2a2a4a' } } } }
       });
 
@@ -799,25 +819,27 @@
       if (charts.blockReasons) charts.blockReasons.destroy();
       charts.blockReasons = new Chart(document.getElementById('chartBlockReasons'), {
         type: 'pie',
-        data: { labels: stats.blockReasons.map(r => r.block_reason || 'Outro'), datasets: [{ data: stats.blockReasons.map(r => r.count), backgroundColor: colors.pie }] },
+        data: { labels: arr(stats.blockReasons).map(r => r.block_reason || 'Outro'), datasets: [{ data: arr(stats.blockReasons).map(r => r.count), backgroundColor: colors.pie }] },
         options: { ...chartOpts, plugins: { legend: { position: 'right', labels: { color: '#a0a0b0' } } } }
       });
     }
 
     // Visitors
     async function loadVisitors() {
-      const siteId = document.getElementById('visitorsSiteFilter').value;
+      const siteId = document.getElementById('visitorsSiteFilter') ? document.getElementById('visitorsSiteFilter').value : 'all';
       const tbody = document.getElementById('visitorsTable');
-      tbody.innerHTML = '<tr><td colspan="11" class="loading"><div class="spinner"></div></td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="loading"><div class="spinner"></div></td></tr>';
       try {
-        const res = await fetch(`/api/visitors?page=${currentPage}&filter=${currentFilter}&site=${siteId}`);
+        const res = await apiGet(`/api/visitors?page=${currentPage}&filter=${currentFilter}&site=${siteId}`);
+        if (!res) return;
         const data = await res.json();
-        if (data.visitors.length === 0) {
+        const list = Array.isArray(data && data.visitors) ? data.visitors : [];
+        if (list.length === 0) {
           tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante encontrado</td></tr>';
-          document.getElementById('pagination').innerHTML = '';
+          if (document.getElementById('pagination')) document.getElementById('pagination').innerHTML = '';
           return;
         }
-        tbody.innerHTML = data.visitors.map(v => `
+        tbody.innerHTML = list.map(v => `
           <tr>
             <td>${formatDateBR(v.created_at)}</td>
             <td><code style="font-size:11px">${v.ip || '-'}</code></td>
@@ -856,18 +878,20 @@
     }
 
     async function loadPermitted() {
-      const siteId = document.getElementById('reportsSiteFilter').value;
+      const siteId = document.getElementById('reportsSiteFilter') ? document.getElementById('reportsSiteFilter').value : 'all';
       const tbody = document.getElementById('permittedTable');
-      tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
       try {
-        const res = await fetch(`/api/visitors?page=${permittedPage}&filter=allowed&site=${siteId}&limit=25`);
+        const res = await apiGet(`/api/visitors?page=${permittedPage}&filter=allowed&site=${siteId}&limit=25`);
+        if (!res) return;
         const data = await res.json();
-        if (data.visitors.length === 0) {
+        const list = Array.isArray(data && data.visitors) ? data.visitors : [];
+        if (list.length === 0) {
           tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante permitido</td></tr>';
-          document.getElementById('permittedPagination').innerHTML = '';
+          if (document.getElementById('permittedPagination')) document.getElementById('permittedPagination').innerHTML = '';
           return;
         }
-        tbody.innerHTML = data.visitors.map(v => `
+        tbody.innerHTML = list.map(v => `
           <tr>
             <td>${formatDateBR(v.created_at)}</td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
@@ -895,18 +919,20 @@
     }
 
     async function loadBlocked() {
-      const siteId = document.getElementById('reportsSiteFilter').value;
+      const siteId = document.getElementById('reportsSiteFilter') ? document.getElementById('reportsSiteFilter').value : 'all';
       const tbody = document.getElementById('blockedTable');
-      tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
       try {
-        const res = await fetch(`/api/visitors?page=${blockedPage}&filter=blocked&site=${siteId}&limit=25`);
+        const res = await apiGet(`/api/visitors?page=${blockedPage}&filter=blocked&site=${siteId}&limit=25`);
+        if (!res) return;
         const data = await res.json();
-        if (data.visitors.length === 0) {
+        const list = Array.isArray(data && data.visitors) ? data.visitors : [];
+        if (list.length === 0) {
           tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary)">Nenhum visitante bloqueado</td></tr>';
-          document.getElementById('blockedPagination').innerHTML = '';
+          if (document.getElementById('blockedPagination')) document.getElementById('blockedPagination').innerHTML = '';
           return;
         }
-        tbody.innerHTML = data.visitors.map(v => `
+        tbody.innerHTML = list.map(v => `
           <tr>
             <td>${formatDateBR(v.created_at)}</td>
             <td><span class="badge badge-info">${v.site_id || 'default'}</span></td>
@@ -935,7 +961,8 @@
       document.getElementById('visitorModal').classList.add('active');
       document.getElementById('visitorDetails').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       try {
-        const res = await fetch(`/api/visitors/${id}`);
+        const res = await apiGet(`/api/visitors/${id}`);
+        if (!res) return;
         const v = await res.json();
         document.getElementById('visitorDetails').innerHTML = `
           <div class="info-grid">
@@ -986,6 +1013,7 @@
         const res = await fetch('/api/sites', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             name,
             target_url: url,
@@ -1103,16 +1131,16 @@
     // Init
     (async function init() {
       try {
-        const meRes = await fetch('/api/me', { credentials: 'include' });
-        if (meRes.ok) {
+        const meRes = await apiGet('/api/me');
+        if (meRes && meRes.ok) {
           currentUser = await meRes.json();
-          if (currentUser.role === 'admin') {
-            document.getElementById('navConfig').style.display = 'block';
-            document.getElementById('navUsers').style.display = 'block';
+          if (currentUser && currentUser.role === 'admin') {
+            var nc = document.getElementById('navConfig'); var nu = document.getElementById('navUsers');
+            if (nc) nc.style.display = 'block'; if (nu) nu.style.display = 'block';
           }
         }
-        const setRes = await fetch('/api/settings', { credentials: 'include' });
-        if (setRes.ok) { const s = await setRes.json(); baseUrlOrOrigin = (s.cloaker_base_url || '').trim() || window.location.origin; }
+        const setRes = await apiGet('/api/settings');
+        if (setRes && setRes.ok) { const s = await setRes.json(); baseUrlOrOrigin = (s.cloaker_base_url || '').trim() || window.location.origin; }
       } catch (e) {}
       loadSites();
       refreshStats();
