@@ -10,6 +10,9 @@ const session = require('express-session');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
+const isProduction = process.env.NODE_ENV === 'production';
+// Railway: atrás de proxy HTTPS – precisa confiar no proxy para cookie e sessão
+if (isProduction) app.set('trust proxy', 1);
 // Railway: usa volume para persistir o banco; local: usa a pasta do projeto
 const DB_PATH = process.env.RAILWAY_VOLUME_MOUNT_PATH
   ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'cloaker.db')
@@ -22,7 +25,13 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 }
+  name: 'cloaker.sid',
+  cookie: {
+    secure: isProduction,
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    sameSite: 'lax'
+  }
 }));
 app.use(express.static('public'));
 
