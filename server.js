@@ -4,6 +4,7 @@ const cors = require('cors');
 const UAParser = require('ua-parser-js');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const dns = require('dns').promises;
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
@@ -130,6 +131,7 @@ async function initDb() {
   try { db.run('ALTER TABLE sites ADD COLUMN link_code TEXT'); } catch (e) {}
   try { db.run('ALTER TABLE sites ADD COLUMN target_url TEXT'); } catch (e) {}
   try { db.run('ALTER TABLE sites ADD COLUMN user_id INTEGER'); } catch (e) {}
+  try { db.run('ALTER TABLE sites ADD COLUMN required_ref_token TEXT'); } catch (e) {}
   // Atribuir sites existentes ao primeiro admin (para migração)
   const firstAdmin = get('SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', ['admin']);
   if (firstAdmin) {
@@ -679,18 +681,23 @@ function generateLinkCode() {
   return code;
 }
 
+function generateRefToken() {
+  return crypto.randomBytes(10).toString('hex');
+}
+
 // API: Criar site (padrão: apenas Brasil; gera link para usar nos Ads) – pertence ao usuário logado
 app.post('/api/sites', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
   const { name, domain, target_url, redirect_url, allowed_countries } = req.body;
   const siteId = 'site_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   const linkCode = generateLinkCode();
+  const refToken = generateRefToken();
   const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
   const target = (target_url || '').trim() || null;
   const userId = req.session.userId;
   try {
-    run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, datetime('now'))`,
-      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', countries]);
+    run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, datetime('now'))`,
+      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', countries, refToken]);
     const site = get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
   } catch (error) {
@@ -701,25 +708,28 @@ app.post('/api/sites', (req, res) => {
 // API: Atualizar site (apenas se o site pertencer ao usuário)
 app.put('/api/sites/:siteId', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
-  const existing = get('SELECT link_code, user_id FROM sites WHERE site_id = ?', [req.params.siteId]);
+  const existing = get('SELECT link_code, user_id, required_ref_token FROM sites WHERE site_id = ?', [req.params.siteId]);
   if (!existing) return res.status(404).json({ error: 'Site não encontrado' });
   if (existing.user_id != null && Number(existing.user_id) !== Number(req.session.userId)) return res.status(403).json({ error: 'Acesso negado a este site' });
   const data = req.body;
   try {
     let linkCode = existing.link_code;
     if (!linkCode) linkCode = generateLinkCode();
+    let refToken = existing.required_ref_token;
+    if (data.regenerate_ref_token) refToken = generateRefToken();
+    else if (data.required_ref_token !== undefined) refToken = (data.required_ref_token || '').trim() || null;
     run(`
       UPDATE sites SET
         name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?,
         block_desktop = ?, block_facebook_library = ?, block_bots = ?,
         block_vpn = ?, block_devtools = ?,
-        allowed_countries = ?, blocked_countries = ?, is_active = ?
+        allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?
       WHERE site_id = ?
     `, [
       data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
-      data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0,
+      data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0, refToken,
       req.params.siteId
     ]);
     res.json({ success: true });
@@ -937,6 +947,18 @@ app.get('/go/:code', async (req, res) => {
   const site = get('SELECT * FROM sites WHERE link_code = ? AND is_active = 1', [code]);
   if (!site || !site.target_url) {
     return res.redirect(302, 'https://www.google.com/');
+  }
+
+  // Parâmetro de rastreamento (Meta Ads): se o site exige ref, só permite quem vier com ref=TOKEN
+  const refParam = (req.query.ref || '').trim();
+  if (site.required_ref_token) {
+    if (refParam !== site.required_ref_token) {
+      const blockReasonRef = 'Acesso sem parâmetro de rastreamento (não veio do Ads)';
+      const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+      run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, datetime('now'))`,
+        [site.site_id, (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim() || 'unknown', req.headers['user-agent'] || '', (req.headers['referer'] || req.headers['referrer'] || ''), fullUrl, null, null, null, null, null, null, null, blockReasonRef]);
+      return res.redirect(302, site.redirect_url || 'https://www.google.com/');
+    }
   }
 
   // IP: prioridade cf-connecting-ip (Cloudflare), true-client-ip, x-forwarded-for (1º = cliente), x-real-ip, socket

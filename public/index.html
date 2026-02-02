@@ -365,6 +365,7 @@
             <ul style="color: var(--text-secondary); line-height: 1.8; padding-left: 20px;">
               <li><strong>Não precisa colocar nenhum script no seu site.</strong> Só usar o link gerado nos Ads.</li>
               <li>Cada site tem seu próprio link e configurações (país, bloqueio de desktop, etc.).</li>
+              <li><strong>Parâmetro de rastreamento:</strong> use o parâmetro <code>ref=...</code> no Meta Ads (Rastreamento → Parâmetros de URL) para que só quem clicar no anúncio seja permitido; quem acessar o link sem esse parâmetro será bloqueado.</li>
               <li>Os parâmetros do anúncio (UTM, fbclid, etc.) são repassados para sua landing page.</li>
               <li>Todos os acessos (permitidos e bloqueados) aparecem no painel.</li>
             </ul>
@@ -381,6 +382,13 @@
           <div class="code-block" id="scriptCodeBlock" style="display: none;">
             <button class="copy-btn" onclick="copyScript()"><i class="ri-file-copy-line"></i> Copiar link</button>
             <pre id="scriptCode"></pre>
+            <div id="scriptRefParamBox" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+              <div class="form-label" style="margin-bottom: 8px;">No Meta Ads, em <strong>Rastreamento → Parâmetros de URL</strong>, adicione (para só permitir cliques do anúncio):</div>
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <code id="scriptRefParamValue" style="padding: 8px 12px; background: var(--bg-primary); border-radius: 8px; font-size: 13px; word-break: break-all;"></code>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="copyRefParam()"><i class="ri-file-copy-line"></i> Copiar parâmetro</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -560,6 +568,22 @@
           <label class="form-label">Países Bloqueados (ex: US,UK – vazio = nenhum)</label>
           <input type="text" class="form-input" id="siteBlockedCountries" placeholder="Deixe vazio para não bloquear">
         </div>
+        <h4 style="margin: 25px 0 15px;">Parâmetro de rastreamento (Meta Ads)</h4>
+        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">Para permitir <strong>apenas</strong> quem clicar no anúncio: exija o parâmetro abaixo. No Meta Ads, em <strong>Rastreamento → Parâmetros de URL</strong>, adicione o valor. Quem acessar o link sem esse parâmetro será bloqueado.</p>
+        <div class="info-grid" style="margin-bottom: 12px;">
+          <div class="info-item" style="flex: 1 1 100%;">
+            <span class="info-label">Exigir parâmetro de rastreamento (bloquear quem não vier do Ads)</span>
+            <label class="switch"><input type="checkbox" id="siteRequireRef"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div id="siteRefTokenBox" style="display: none; background: var(--bg-secondary); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+          <div class="form-label" style="margin-bottom: 8px;">Parâmetro para colar no Meta Ads (Parâmetros de URL):</div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <code id="siteRefTokenValue" style="padding: 8px 12px; background: var(--bg-primary); border-radius: 8px; font-size: 13px; word-break: break-all;"></code>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="copyRefToken()"><i class="ri-file-copy-line"></i> Copiar</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="siteRegenerateRefBtn" onclick="setRegenerateRefOnSave(true)"><i class="ri-refresh-line"></i> Gerar novo token</button>
+          </div>
+        </div>
         <div style="display: flex; gap: 10px; margin-top: 25px;">
           <button class="btn btn-primary" onclick="saveSite()"><i class="ri-save-line"></i> Salvar</button>
           <button class="btn btn-secondary" onclick="closeSiteModal()">Cancelar</button>
@@ -717,6 +741,8 @@
       `).join('');
     }
 
+    let regenerateRefOnSave = false;
+
     function openNewSiteModal() {
       document.getElementById('siteModalTitle').textContent = 'Novo Site';
       document.getElementById('editSiteId').value = '';
@@ -731,6 +757,9 @@
       document.getElementById('siteBlockDevtools').checked = true;
       document.getElementById('siteAllowedCountries').value = 'BR';
       document.getElementById('siteBlockedCountries').value = '';
+      document.getElementById('siteRequireRef').checked = false;
+      document.getElementById('siteRefTokenBox').style.display = 'none';
+      regenerateRefOnSave = false;
       document.getElementById('siteModal').classList.add('active');
     }
 
@@ -750,11 +779,32 @@
       document.getElementById('siteBlockDevtools').checked = site.block_devtools;
       document.getElementById('siteAllowedCountries').value = site.allowed_countries || 'BR';
       document.getElementById('siteBlockedCountries').value = site.blocked_countries || '';
+      const hasRef = !!(site.required_ref_token && site.required_ref_token.trim());
+      document.getElementById('siteRequireRef').checked = hasRef;
+      const refBox = document.getElementById('siteRefTokenBox');
+      if (hasRef) {
+        refBox.style.display = 'block';
+        document.getElementById('siteRefTokenValue').textContent = 'ref=' + site.required_ref_token;
+      } else {
+        refBox.style.display = 'block';
+        document.getElementById('siteRefTokenValue').textContent = '(nenhum – marque "Exigir" e salve para gerar)';
+      }
+      regenerateRefOnSave = false;
       document.getElementById('siteModal').classList.add('active');
+    }
+
+    function setRegenerateRefOnSave(v) { regenerateRefOnSave = v; }
+
+    function copyRefToken() {
+      const code = document.getElementById('siteRefTokenValue');
+      if (!code || !code.textContent || code.textContent.startsWith('(nenhum')) return;
+      const text = code.textContent.trim();
+      if (text) { copyToClipboard(text); }
     }
 
     async function saveSite() {
       const siteId = document.getElementById('editSiteId').value;
+      const requireRef = document.getElementById('siteRequireRef').checked;
       const data = {
         name: document.getElementById('siteName').value,
         domain: document.getElementById('siteDomain').value,
@@ -769,10 +819,19 @@
         blocked_countries: document.getElementById('siteBlockedCountries').value,
         is_active: true
       };
-      
+      if (siteId) {
+        if (!requireRef) data.required_ref_token = '';
+        else if (regenerateRefOnSave) data.regenerate_ref_token = true;
+        else {
+          const site = sites.find(s => s.site_id === siteId);
+          if (site && !(site.required_ref_token && site.required_ref_token.trim())) data.regenerate_ref_token = true;
+        }
+      }
+      regenerateRefOnSave = false;
+
       if (!data.name) { alert('Digite um nome para o site'); return; }
       if (!data.target_url || !data.target_url.trim()) { alert('Digite a URL do seu site (landing page)'); return; }
-      
+
       try {
         if (siteId) {
           await fetch(`/api/sites/${siteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(data) });
@@ -1101,14 +1160,28 @@
       const siteId = document.getElementById('scriptSiteSelector').value;
       const block = document.getElementById('scriptCodeBlock');
       const code = document.getElementById('scriptCode');
+      const refBox = document.getElementById('scriptRefParamBox');
+      const refVal = document.getElementById('scriptRefParamValue');
       if (!siteId) { block.style.display = 'none'; return; }
       block.style.display = 'block';
       const site = sites.find(s => s.site_id === siteId);
       if (site && site.link_code) {
         code.textContent = getBaseUrl() + '/go/' + site.link_code;
+        if (site.required_ref_token && site.required_ref_token.trim()) {
+          refBox.style.display = 'block';
+          refVal.textContent = 'ref=' + site.required_ref_token;
+        } else {
+          refBox.style.display = 'none';
+        }
       } else {
         code.textContent = 'Salve a URL do seu site e edite o site para gerar o link.';
+        refBox.style.display = 'none';
       }
+    }
+
+    function copyRefParam() {
+      const el = document.getElementById('scriptRefParamValue');
+      if (el && el.textContent) { copyToClipboard(el.textContent.trim()); }
     }
 
     function copyScript() {

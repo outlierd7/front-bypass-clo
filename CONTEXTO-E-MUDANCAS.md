@@ -86,6 +86,21 @@ Este arquivo resume o estado atual do projeto e tudo que foi implementado nesta 
 
 ---
 
+### 5. Parâmetro de rastreamento (Meta Ads) – só permitir quem vem do Ads
+
+- **Objetivo:** Quem tiver apenas o link (sem o parâmetro) não consegue acessar a landing; só quem clicar no anúncio (com o parâmetro configurado no Meta Ads) é permitido.
+- **Backend:**
+  - Coluna **`required_ref_token`** na tabela **`sites`**. Ao criar site, é gerado um token único (ex.: `a1b2c3d4e5...`).
+  - Em **`/go/:code`:** se o site tiver `required_ref_token`, exige que a URL tenha **`ref=TOKEN`**. Quem acessar sem esse parâmetro ou com valor errado é bloqueado (redirect para URL de bloqueio) e registrado com motivo "Acesso sem parâmetro de rastreamento (não veio do Ads)".
+  - **POST /api/sites:** gera e salva `required_ref_token` automaticamente.
+  - **PUT /api/sites:** aceita `regenerate_ref_token: true` (gerar novo token) e `required_ref_token: ''` (desativar exigência).
+- **Frontend:**
+  - No modal do site: seção **"Parâmetro de rastreamento (Meta Ads)"** com checkbox "Exigir parâmetro de rastreamento", exibição de **`ref=TOKEN`** (copiar) e botão "Gerar novo token".
+  - Em **Link para Ads:** ao selecionar um site, mostra o link e, se houver token, o parâmetro para colar no Meta Ads (Rastreamento → Parâmetros de URL).
+- **Uso no Meta Ads:** Em Rastreamento → Parâmetros de URL, adicionar ex.: `ref=TOKEN` (o mesmo valor exibido no painel). A URL final do anúncio fica `https://seu-cloaker.com/go/CODE?ref=TOKEN&utm_source=FB&...`.
+
+---
+
 ## Próximos passos (exemplos – ajuste ao que você quiser)
 
 - Listar aqui as modificações que você ainda quer fazer no clone (ex.: novos relatórios, novos campos em sites, mudanças no fluxo de login, etc.).
