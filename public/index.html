@@ -449,12 +449,13 @@
         <div class="card-header"><h3 class="card-title"><i class="ri-file-list-3-line"></i> Como associar meu domínio (passo a passo)</h3></div>
         <div class="card-body">
           <ol style="color: var(--text-secondary); line-height: 2; padding-left: 20px; margin-bottom: 15px;">
+            <li><strong>No Railway (obrigatório):</strong> Projeto → seu serviço → <strong>Networking</strong> → <strong>+ Custom Domain</strong> → adicione o domínio (ex: <code>cloaker.seudominio.com</code> ou <code>iniiciopropo.sbs</code>). Sem isso, o domínio não chega ao seu app.</li>
             <li><strong>Tenha um domínio</strong> (ex: meusite.com.br). Você pode usar um subdomínio (ex: cloaker.meusite.com.br ou go.meusite.com.br).</li>
             <li><strong>Acesse o painel do seu provedor de DNS</strong> (onde o domínio está registrado: Registro.br, Cloudflare, GoDaddy, HostGator, etc.).</li>
             <li><strong>Crie um registro CNAME:</strong>
               <ul style="margin-top: 8px; margin-bottom: 8px;">
                 <li><strong>Nome/Host:</strong> o subdomínio que você quer usar (ex: <code>cloaker</code> ou <code>go</code>). Se for usar o domínio raiz (meusite.com.br), use <code>@</code> ou consulte a documentação do seu DNS – alguns exigem A/ALIAS em vez de CNAME.</li>
-                <li><strong>Valor/Destino:</strong> aponte para o servidor do painel. No <strong>Railway</strong>, use: <code>cloaktest-production.up.railway.app</code> (ou o host que aparecer na URL do seu painel, ex: <code>seu-app.up.railway.app</code>).</li>
+                <li><strong>Valor/Destino:</strong> aponte para o domínio do seu app no Railway, ex: <code>cloaker-pro-novo-production.up.railway.app</code> (veja em Railway → Networking).</li>
               </ul>
             </li>
             <li><strong>Aguarde a propagação do DNS</strong> (pode levar de alguns minutos a 48 horas). Você pode testar com <code>nslookup cloaker.seudominio.com</code> no terminal.</li>
@@ -504,9 +505,22 @@
         <h2>Domínios cadastrados</h2>
         <button class="btn btn-primary" onclick="document.getElementById('domainModal').classList.add('active')"><i class="ri-add-line"></i> Cadastrar domínio</button>
       </div>
+      <div class="card" style="border-left: 4px solid var(--warning);">
+        <div class="card-body">
+          <h4 style="margin-bottom: 10px; color: var(--warning);"><i class="ri-information-line"></i> Como um domínio passa a funcionar</h4>
+          <p style="color: var(--text-secondary); margin-bottom: 12px;">O cadastro <strong>nesta página</strong> é apenas uma lista interna (para organização e para usuários verem em Configurações). <strong>Não adiciona o domínio ao servidor.</strong></p>
+          <p style="margin-bottom: 12px;">Para o domínio <strong>realmente funcionar</strong> (abrir no navegador e nos links do cloaker), você precisa:</p>
+          <ol style="color: var(--text-secondary); line-height: 1.9; padding-left: 22px; margin-bottom: 15px;">
+            <li><strong>No Railway:</strong> abra o projeto → seu serviço → <strong>Networking</strong> → <strong>+ Custom Domain</strong> e adicione o domínio (ex: <code>iniiciopropo.sbs</code> ou <code>cloaker.seudominio.com</code>).</li>
+            <li><strong>No DNS</strong> (Cloudflare, Registro.br, etc.): crie um CNAME apontando esse domínio para <code>cloaker-pro-novo-production.up.railway.app</code> (ou a URL do seu app no Railway).</li>
+            <li><strong>Opcional:</strong> cadastre o mesmo domínio aqui nesta lista e, em <strong>Configurações</strong>, use a URL (ex: <code>https://iniiciopropo.sbs</code>) em “Meu domínio do Cloaker” para os links gerados usarem esse domínio.</li>
+          </ol>
+          <p style="color: var(--text-secondary); font-size: 13px;">Resumo: <strong>Railway</strong> decide quais domínios aceita (Custom Domain). O <strong>painel</strong> só guarda a lista e usa o domínio que você escolher em Configurações para montar os links.</p>
+        </div>
+      </div>
       <div class="card">
         <div class="card-body">
-          <p style="color: var(--text-secondary); margin-bottom: 15px;">Domínios que podem ser usados no cloaker (ex.: cloaker.seudominio.com). Usuários podem escolher um deles em Configurações.</p>
+          <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios (para referência e para usuários em Configurações). Para funcionar na internet, o domínio precisa estar adicionado no Railway (Networking → Custom Domain) e no DNS.</p>
           <div class="table-container">
             <table>
               <thead><tr><th>Domínio</th><th>Descrição</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
