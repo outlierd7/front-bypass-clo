@@ -238,7 +238,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/go/') || req.path.startsWith('/t/')) return next();
   if (req.path.match(/^\/api\/config\//) && req.method === 'GET') return next();
   if (req.path === '/' && req.method === 'GET' && (!req.session || !req.session.userId)) return res.redirect('/login');
-  if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/setup/check' || req.path === '/api/signup') return next();
+  if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/setup/check' || req.path === '/api/setup/promote-first-admin' || req.path === '/api/signup') return next();
   if (req.path.startsWith('/api/') && !req.session?.userId) return res.status(401).json({ error: 'Não autorizado' });
   next();
 });
@@ -297,6 +297,20 @@ app.post('/api/setup', (req, res) => {
   req.session.userId = user.id;
   req.session.userRole = user.role;
   res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+});
+
+// API: Recuperação – promover primeiro usuário a admin (quando não há admin e usuário criou conta por "Solicitar acesso")
+// Use apenas quando estiver travado (conta pendente e nenhum admin). Requer token em SETUP_RECOVERY_TOKEN.
+app.get('/api/setup/promote-first-admin', (req, res) => {
+  const token = req.query.token || (req.body && req.body.token);
+  const secret = process.env.SETUP_RECOVERY_TOKEN;
+  if (!secret || token !== secret) return res.status(403).json({ error: 'Token inválido ou não configurado.' });
+  const adminCount = get('SELECT COUNT(*) as c FROM users WHERE role = ?', ['admin']);
+  if (adminCount && adminCount.c > 0) return res.status(400).json({ error: 'Já existe um administrador. Use o painel para aprovar usuários.' });
+  const first = get('SELECT id, username FROM users ORDER BY id ASC LIMIT 1');
+  if (!first) return res.status(404).json({ error: 'Nenhum usuário no banco.' });
+  run('UPDATE users SET role = ?, status = ? WHERE id = ?', ['admin', 'active', first.id]);
+  res.json({ success: true, message: 'Primeiro usuário promovido a administrador. Faça login com: ' + first.username });
 });
 
 // API: Configurações (domínio do cloaker – por usuário: cada user tem seu próprio domínio)
