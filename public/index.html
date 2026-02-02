@@ -795,29 +795,48 @@
     ];
 
     function fillCountrySelects() {
-      const item = (c, type) => '<div class="country-checkbox-item"><input type="checkbox" id="country-' + type + '-' + c.code + '" value="' + c.code + '"><label for="country-' + type + '-' + c.code + '">' + c.name + ' (' + c.code + ')</label></div>';
+      const item = (c, type) => '<div class="country-checkbox-item" data-code="' + c.code + '" data-type="' + type + '"><input type="checkbox" id="country-' + type + '-' + c.code + '" value="' + c.code + '"><label for="country-' + type + '-' + c.code + '">' + c.name + ' (' + c.code + ')</label></div>';
       const allowed = document.getElementById('siteAllowedCountries');
       const blocked = document.getElementById('siteBlockedCountries');
       if (allowed && blocked) {
         allowed.innerHTML = COUNTRY_LIST.map(c => item(c, 'allowed')).join('');
         blocked.innerHTML = COUNTRY_LIST.map(c => item(c, 'blocked')).join('');
+        updateCountryVisibility();
         allowed.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-          cb.addEventListener('change', function() {
-            if (this.checked) {
-              const other = document.getElementById('country-blocked-' + this.value);
-              if (other && other.checked) { other.checked = false; alert('O país ' + this.value + ' foi removido de "Países Bloqueados" porque não pode estar nos dois ao mesmo tempo.'); }
-            }
-          });
+          cb.addEventListener('change', updateCountryVisibility);
         });
         blocked.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-          cb.addEventListener('change', function() {
-            if (this.checked) {
-              const other = document.getElementById('country-allowed-' + this.value);
-              if (other && other.checked) { other.checked = false; alert('O país ' + this.value + ' foi removido de "Países Permitidos" porque não pode estar nos dois ao mesmo tempo.'); }
-            }
-          });
+          cb.addEventListener('change', updateCountryVisibility);
         });
       }
+    }
+
+    function updateCountryVisibility() {
+      const allowed = document.getElementById('siteAllowedCountries');
+      const blocked = document.getElementById('siteBlockedCountries');
+      if (!allowed || !blocked) return;
+      const allowedChecked = Array.from(allowed.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+      const blockedChecked = Array.from(blocked.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+      blocked.querySelectorAll('.country-checkbox-item').forEach(item => {
+        const code = item.dataset.code;
+        if (allowedChecked.includes(code)) {
+          item.style.display = 'none';
+          const cb = item.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = false;
+        } else {
+          item.style.display = '';
+        }
+      });
+      allowed.querySelectorAll('.country-checkbox-item').forEach(item => {
+        const code = item.dataset.code;
+        if (blockedChecked.includes(code)) {
+          item.style.display = 'none';
+          const cb = item.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = false;
+        } else {
+          item.style.display = '';
+        }
+      });
     }
 
     function setCountrySelect(elId, codesStr) {
@@ -839,8 +858,9 @@
       const elId = type === 'allowed' ? 'siteAllowedCountries' : 'siteBlockedCountries';
       const el = document.getElementById(elId);
       if (!el) return;
-      const checkboxes = el.querySelectorAll('input[type="checkbox"]');
+      const checkboxes = el.querySelectorAll('.country-checkbox-item:not([style*="display: none"]) input[type="checkbox"]');
       checkboxes.forEach(cb => { cb.checked = checked; });
+      updateCountryVisibility();
     }
 
     function getBaseUrl() { return (baseUrlOrOrigin || '').replace(/\/$/, '') || window.location.origin; }
@@ -967,9 +987,15 @@
             <div class="code-block" style="font-size: 12px; padding: 10px;">
               <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="if ('${s.link_code || ''}') copyToClipboard(getBaseUrl() + '/go/${s.link_code || ''}'); else alert('Edite o site e salve a URL do seu site para gerar o link.');"><i class="ri-file-copy-line"></i></button>
               ${s.link_code ? (getBaseUrl() + '/go/' + s.link_code) : 'Salve a URL do seu site e edite o site para gerar o link.'}
-              ${(s.required_ref_token && s.required_ref_token.trim()) ? ' <span style="color: var(--accent); font-weight: 600;"> (ref=' + (s.required_ref_token || '') + ')</span>' : ''}
             </div>
-            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Use esse link como <strong>URL de destino</strong> nos seus anúncios. Não precisa colocar script no seu site.</p>
+            ${(s.required_ref_token && s.required_ref_token.trim()) ? `
+            <div class="form-label" style="margin: 12px 0 6px;">🔑 Parâmetro de Rastreamento (Meta Ads → Rastreamento → Parâmetros de URL)</div>
+            <div class="code-block" style="font-size: 12px; padding: 10px; background: linear-gradient(135deg, rgba(103,126,234,0.15), rgba(233,69,96,0.15)); border: 1px solid var(--accent);">
+              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copyToClipboard('ref=${s.required_ref_token}');"><i class="ri-file-copy-line"></i></button>
+              <span style="color: var(--accent); font-weight: 600;">ref=${s.required_ref_token}</span>
+            </div>
+            ` : ''}
+            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Use esse link como <strong>URL de destino</strong> nos seus anúncios. ${(s.required_ref_token && s.required_ref_token.trim()) ? 'No Meta Ads, adicione o parâmetro acima em <strong>Rastreamento → Parâmetros de URL</strong>.' : ''}</p>
           </div>
         </div>
       `).join('');
@@ -993,6 +1019,7 @@
       document.getElementById('siteBlockDevtools').checked = true;
       setCountrySelect('siteAllowedCountries', 'BR');
       setCountrySelect('siteBlockedCountries', '');
+      updateCountryVisibility();
       document.getElementById('siteRequireRef').checked = false;
       document.getElementById('siteRefTokenBox').style.display = 'none';
       regenerateRefOnSave = false;
@@ -1018,6 +1045,7 @@
       document.getElementById('siteBlockDevtools').checked = site.block_devtools;
       setCountrySelect('siteAllowedCountries', site.allowed_countries || 'BR');
       setCountrySelect('siteBlockedCountries', site.blocked_countries || '');
+      updateCountryVisibility();
       const hasRef = !!(site.required_ref_token && site.required_ref_token.trim());
       document.getElementById('siteRequireRef').checked = hasRef;
       const refBox = document.getElementById('siteRefTokenBox');

@@ -871,7 +871,7 @@ app.get('/api/stats', (req, res) => {
 
   const userSites = "v.site_id IN (SELECT site_id FROM sites WHERE user_id = ?)";
   const siteFilter = siteId && siteId !== 'all' ? " AND v.site_id = ?" : '';
-  const params = siteId && siteId !== 'all' ? [userId, start, end, siteId] : [userId, start, end];
+  const params = siteId && siteId !== 'all' ? [start, end, userId, siteId] : [start, end, userId];
   const baseWhere = `FROM visitors v WHERE v.created_at >= ? AND v.created_at < ? AND ${userSites}${siteFilter}`;
 
   const stats = {
