@@ -140,13 +140,33 @@
     .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 99; }
     .sidebar-overlay.active { display: block; }
     .menu-toggle { display: none; position: fixed; top: 15px; left: 15px; z-index: 101; width: 44px; height: 44px; border-radius: 10px; background: var(--accent); color: white; border: none; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; box-shadow: 0 2px 10px rgba(233,69,96,0.4); }
+    .country-select-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .country-select-wrap .form-group { margin-bottom: 0; }
+    .country-select-wrap select[multiple] { min-height: 200px; resize: vertical; }
+    .country-select-wrap .form-hint { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+    .last-update { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+    .card { box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+    .stat-card { box-shadow: 0 4px 15px rgba(0,0,0,0.12); }
     @media (max-width: 768px) {
       .menu-toggle { display: flex; }
-      .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
+      .sidebar { width: 280px; transform: translateX(-100%); transition: transform 0.3s ease; }
       .sidebar.open { transform: translateX(0); }
-      .main { margin-left: 0; padding-top: 60px; padding-left: 15px; }
-      .charts-grid { grid-template-columns: 1fr; }
-      .header { flex-direction: column; align-items: flex-start; }
+      .main { margin-left: 0; padding: 70px 12px 20px; }
+      .header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .header-actions { width: 100%; flex-direction: column; }
+      .period-selector { flex-wrap: wrap; }
+      .site-selector { width: 100%; max-width: none; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .stat-value { font-size: 22px; }
+      .charts-grid { grid-template-columns: 1fr; gap: 15px; }
+      .chart-container { height: 240px; }
+      .table-container { font-size: 12px; }
+      th, td { padding: 8px 10px; }
+      .country-select-wrap { grid-template-columns: 1fr; }
+      .country-select-wrap select[multiple] { min-height: 160px; }
+    }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -166,6 +186,7 @@
       <li class="nav-item"><a class="nav-link" data-section="script"><i class="ri-link"></i> Link para Ads</a></li>
       <li class="nav-item"><a class="nav-link" data-section="settings"><i class="ri-settings-3-line"></i> Configurações</a></li>
       <li class="nav-item" id="navUsers" style="display:none"><a class="nav-link" data-section="users"><i class="ri-team-line"></i> Usuários</a></li>
+      <li class="nav-item" id="navDomains" style="display:none"><a class="nav-link" data-section="domains"><i class="ri-global-line"></i> Domínios</a></li>
     </ul>
     <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border);">
       <button type="button" class="nav-link" style="width:100%; background:none; border:none; color: var(--text-secondary); cursor: pointer;" onclick="logout()"><i class="ri-logout-box-line"></i> Sair</button>
@@ -191,6 +212,7 @@
         <div>
           <h2>Dashboard</h2>
           <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">Horário de Brasília (BRT) · Atualização automática a cada 30s</p>
+          <p class="last-update" id="dashboardLastUpdate">Última atualização: —</p>
         </div>
         <div class="header-actions">
           <select class="form-select site-selector" id="dashboardSiteFilter" onchange="refreshStats()">
@@ -475,7 +497,46 @@
         </div>
       </div>
     </section>
+
+    <!-- Domínios (admin) -->
+    <section id="domains" class="section">
+      <div class="header">
+        <h2>Domínios cadastrados</h2>
+        <button class="btn btn-primary" onclick="document.getElementById('domainModal').classList.add('active')"><i class="ri-add-line"></i> Cadastrar domínio</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <p style="color: var(--text-secondary); margin-bottom: 15px;">Domínios que podem ser usados no cloaker (ex.: cloaker.seudominio.com). Usuários podem escolher um deles em Configurações.</p>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Domínio</th><th>Descrição</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
+              <tbody id="domainsTable"><tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr></tbody>
+            </table>
+          </div>
+          <p id="domainsEmpty" style="display:none; color: var(--text-secondary); padding: 20px 0;">Nenhum domínio cadastrado. Clique em "Cadastrar domínio" para adicionar.</p>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <!-- Modal Cadastrar domínio -->
+  <div class="modal" id="domainModal">
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="modal-header"><h3>Cadastrar domínio</h3><button class="modal-close" onclick="document.getElementById('domainModal').classList.remove('active')">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Domínio (ex: cloaker.seudominio.com)</label>
+          <input type="text" class="form-input" id="newDomainName" placeholder="cloaker.seudominio.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrição (opcional)</label>
+          <input type="text" class="form-input" id="newDomainDesc" placeholder="Ex: Campanha principal">
+        </div>
+        <button class="btn btn-primary" onclick="addDomain()"><i class="ri-save-line"></i> Cadastrar</button>
+        <span id="domainMsg" style="margin-left: 10px; font-size: 13px;"></span>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal Alterar senha (admin) -->
   <div class="modal" id="changePasswordModal">
@@ -561,12 +622,18 @@
           <div class="info-item"><span class="info-label">Bloquear DevTools</span><label class="switch"><input type="checkbox" id="siteBlockDevtools" checked><span class="slider"></span></label></div>
         </div>
         <div class="form-group" style="margin-top: 20px;">
-          <label class="form-label">Países Permitidos (padrão: apenas BR – Brasil)</label>
-          <input type="text" class="form-input" id="siteAllowedCountries" placeholder="BR" value="BR">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Países Bloqueados (ex: US,UK – vazio = nenhum)</label>
-          <input type="text" class="form-input" id="siteBlockedCountries" placeholder="Deixe vazio para não bloquear">
+          <div class="country-select-wrap">
+            <div class="form-group">
+              <label class="form-label">Países Permitidos</label>
+              <select multiple class="form-input" id="siteAllowedCountries" size="8" style="height: auto;"></select>
+              <p class="form-hint">Ctrl/Cmd para vários. Padrão: Brasil (BR).</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Países Bloqueados</label>
+              <select multiple class="form-input" id="siteBlockedCountries" size="8" style="height: auto;"></select>
+              <p class="form-hint">Ctrl/Cmd para vários. Vazio = nenhum.</p>
+            </div>
+          </div>
         </div>
         <h4 style="margin: 25px 0 15px;">Parâmetro de rastreamento (Meta Ads)</h4>
         <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">Para permitir <strong>apenas</strong> quem clicar no anúncio: exija o parâmetro abaixo. No Meta Ads, em <strong>Rastreamento → Parâmetros de URL</strong>, adicione o valor. Quem acessar o link sem esse parâmetro será bloqueado.</p>
@@ -611,6 +678,52 @@
     let currentUser = null;
     let baseUrlOrOrigin = window.location.origin;
 
+    const COUNTRY_LIST = [
+      { code: 'BR', name: 'Brasil' }, { code: 'AR', name: 'Argentina' }, { code: 'BO', name: 'Bolívia' }, { code: 'CL', name: 'Chile' },
+      { code: 'CO', name: 'Colômbia' }, { code: 'EC', name: 'Equador' }, { code: 'PY', name: 'Paraguai' }, { code: 'PE', name: 'Peru' },
+      { code: 'UY', name: 'Uruguai' }, { code: 'VE', name: 'Venezuela' }, { code: 'US', name: 'Estados Unidos' }, { code: 'CA', name: 'Canadá' },
+      { code: 'MX', name: 'México' }, { code: 'PT', name: 'Portugal' }, { code: 'ES', name: 'Espanha' }, { code: 'GB', name: 'Reino Unido' },
+      { code: 'FR', name: 'França' }, { code: 'DE', name: 'Alemanha' }, { code: 'IT', name: 'Itália' }, { code: 'NL', name: 'Holanda' },
+      { code: 'BE', name: 'Bélgica' }, { code: 'CH', name: 'Suíça' }, { code: 'AT', name: 'Áustria' }, { code: 'PL', name: 'Polônia' },
+      { code: 'RU', name: 'Rússia' }, { code: 'UA', name: 'Ucrânia' }, { code: 'TR', name: 'Turquia' }, { code: 'IN', name: 'Índia' },
+      { code: 'CN', name: 'China' }, { code: 'JP', name: 'Japão' }, { code: 'KR', name: 'Coreia do Sul' }, { code: 'AU', name: 'Austrália' },
+      { code: 'ZA', name: 'África do Sul' }, { code: 'EG', name: 'Egito' }, { code: 'NG', name: 'Nigéria' }, { code: 'KE', name: 'Quênia' },
+      { code: 'SA', name: 'Arábia Saudita' }, { code: 'AE', name: 'Emirados Árabes' }, { code: 'IL', name: 'Israel' }, { code: 'TH', name: 'Tailândia' },
+      { code: 'VN', name: 'Vietnã' }, { code: 'ID', name: 'Indonésia' }, { code: 'MY', name: 'Malásia' }, { code: 'PH', name: 'Filipinas' },
+      { code: 'SE', name: 'Suécia' }, { code: 'NO', name: 'Noruega' }, { code: 'DK', name: 'Dinamarca' }, { code: 'FI', name: 'Finlândia' },
+      { code: 'IE', name: 'Irlanda' }, { code: 'GR', name: 'Grécia' }, { code: 'CZ', name: 'Rep. Tcheca' }, { code: 'RO', name: 'Romênia' },
+      { code: 'HU', name: 'Hungria' }, { code: 'BG', name: 'Bulgária' }, { code: 'HR', name: 'Croácia' }, { code: 'RS', name: 'Sérvia' },
+      { code: 'CR', name: 'Costa Rica' }, { code: 'PA', name: 'Panamá' }, { code: 'GT', name: 'Guatemala' }, { code: 'DO', name: 'Rep. Dominicana' },
+      { code: 'CU', name: 'Cuba' }, { code: 'PR', name: 'Porto Rico' }, { code: 'JM', name: 'Jamaica' }, { code: 'HN', name: 'Honduras' },
+      { code: 'SV', name: 'El Salvador' }, { code: 'NI', name: 'Nicarágua' }, { code: 'NZ', name: 'Nova Zelândia' }, { code: 'SG', name: 'Singapura' },
+      { code: 'PK', name: 'Paquistão' }, { code: 'BD', name: 'Bangladesh' }, { code: 'IR', name: 'Irã' }, { code: 'IQ', name: 'Iraque' }
+    ];
+
+    function fillCountrySelects() {
+      const opt = (c) => '<option value="' + c.code + '">' + c.name + ' (' + c.code + ')</option>';
+      const allowed = document.getElementById('siteAllowedCountries');
+      const blocked = document.getElementById('siteBlockedCountries');
+      if (allowed && blocked) {
+        allowed.innerHTML = COUNTRY_LIST.map(opt).join('');
+        blocked.innerHTML = COUNTRY_LIST.map(opt).join('');
+      }
+    }
+
+    function setCountrySelect(elId, codesStr) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const codes = (codesStr || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+      for (let i = 0; i < el.options.length; i++) {
+        el.options[i].selected = codes.indexOf(el.options[i].value) !== -1;
+      }
+    }
+
+    function getCountrySelectValue(elId) {
+      const el = document.getElementById(elId);
+      if (!el) return '';
+      return Array.from(el.selectedOptions).map(o => o.value).join(',');
+    }
+
     function getBaseUrl() { return (baseUrlOrOrigin || '').replace(/\/$/, '') || window.location.origin; }
 
     function checkAuth(res) {
@@ -653,6 +766,7 @@
         if (section === 'sites') loadSites();
         if (section === 'visitors') loadVisitors();
         if (section === 'reports') loadReports();
+        if (section === 'domains') loadDomains();
         if (section === 'script') loadScriptSection();
         if (section === 'settings') loadSettings();
         if (section === 'users') loadUsers();
@@ -755,8 +869,8 @@
       document.getElementById('siteBlockBots').checked = true;
       document.getElementById('siteBlockVpn').checked = true;
       document.getElementById('siteBlockDevtools').checked = true;
-      document.getElementById('siteAllowedCountries').value = 'BR';
-      document.getElementById('siteBlockedCountries').value = '';
+      setCountrySelect('siteAllowedCountries', 'BR');
+      setCountrySelect('siteBlockedCountries', '');
       document.getElementById('siteRequireRef').checked = false;
       document.getElementById('siteRefTokenBox').style.display = 'none';
       regenerateRefOnSave = false;
@@ -777,8 +891,8 @@
       document.getElementById('siteBlockBots').checked = site.block_bots;
       document.getElementById('siteBlockVpn').checked = site.block_vpn;
       document.getElementById('siteBlockDevtools').checked = site.block_devtools;
-      document.getElementById('siteAllowedCountries').value = site.allowed_countries || 'BR';
-      document.getElementById('siteBlockedCountries').value = site.blocked_countries || '';
+      setCountrySelect('siteAllowedCountries', site.allowed_countries || 'BR');
+      setCountrySelect('siteBlockedCountries', site.blocked_countries || '');
       const hasRef = !!(site.required_ref_token && site.required_ref_token.trim());
       document.getElementById('siteRequireRef').checked = hasRef;
       const refBox = document.getElementById('siteRefTokenBox');
@@ -815,8 +929,8 @@
         block_bots: document.getElementById('siteBlockBots').checked,
         block_devtools: document.getElementById('siteBlockDevtools').checked,
         block_vpn: document.getElementById('siteBlockVpn').checked,
-        allowed_countries: document.getElementById('siteAllowedCountries').value,
-        blocked_countries: document.getElementById('siteBlockedCountries').value,
+        allowed_countries: getCountrySelectValue('siteAllowedCountries') || 'BR',
+        blocked_countries: getCountrySelectValue('siteBlockedCountries') || '',
         is_active: true
       };
       if (siteId) {
@@ -870,6 +984,8 @@
         document.getElementById('statDesktop').textContent = (n(stats.desktop)).toLocaleString();
         updateCharts(stats);
         loadLastVisits();
+        var lastEl = document.getElementById('dashboardLastUpdate');
+        if (lastEl) lastEl.textContent = 'Última atualização: ' + new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'medium' }) + ' (Brasília)';
       } catch (e) { }
     }
 
@@ -1433,6 +1549,57 @@
       } catch (e) {}
     }
 
+    async function loadDomains() {
+      const tbody = document.getElementById('domainsTable');
+      const empty = document.getElementById('domainsEmpty');
+      if (!tbody) return;
+      try {
+        const res = await apiGet('/api/domains');
+        if (!res) return;
+        const list = await res.json();
+        if (!Array.isArray(list)) { tbody.innerHTML = '<tr><td colspan="4">Erro ao carregar</td></tr>'; return; }
+        if (list.length === 0) {
+          tbody.innerHTML = '';
+          if (empty) empty.style.display = 'block';
+          return;
+        }
+        if (empty) empty.style.display = 'none';
+        tbody.innerHTML = list.map(d => {
+          const created = d.created_at ? formatDateBR(d.created_at) : '-';
+          return '<tr><td><code>' + (d.domain || '') + '</code></td><td>' + (d.description || '-') + '</td><td>' + created + '</td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>';
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4">Erro ao carregar</td></tr>';
+      }
+    }
+
+    async function addDomain() {
+      const name = (document.getElementById('newDomainName').value || '').trim();
+      const desc = (document.getElementById('newDomainDesc').value || '').trim();
+      const msg = document.getElementById('domainMsg');
+      if (!name) { if (msg) msg.textContent = 'Informe o domínio'; return; }
+      if (msg) msg.textContent = '';
+      try {
+        const res = await fetch('/api/domains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ domain: name, description: desc }) });
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        const data = await res.json();
+        if (!res.ok) { if (msg) msg.textContent = data.error || 'Erro'; return; }
+        document.getElementById('newDomainName').value = '';
+        document.getElementById('newDomainDesc').value = '';
+        document.getElementById('domainModal').classList.remove('active');
+        loadDomains();
+      } catch (e) { if (msg) msg.textContent = 'Erro de conexão'; }
+    }
+
+    async function deleteDomain(id) {
+      if (!confirm('Remover este domínio da lista?')) return;
+      try {
+        const res = await fetch('/api/domains/' + id, { method: 'DELETE', credentials: 'include' });
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        loadDomains();
+      } catch (e) {}
+    }
+
     async function createUser() {
       const username = (document.getElementById('newUserUsername').value || '').trim();
       const password = document.getElementById('newUserPassword').value;
@@ -1462,11 +1629,14 @@
           if (currentUser && currentUser.role === 'admin') {
             var nu = document.getElementById('navUsers');
             if (nu) nu.style.display = 'block';
+            var nd = document.getElementById('navDomains');
+            if (nd) nd.style.display = 'block';
           }
         }
         const setRes = await apiGet('/api/settings');
         if (setRes && setRes.ok) { const s = await setRes.json(); baseUrlOrOrigin = (s.cloaker_base_url || '').trim() || window.location.origin; }
       } catch (e) {}
+      fillCountrySelects();
       loadSites();
       refreshStats();
     })();
@@ -1476,6 +1646,7 @@
     document.getElementById('siteModal').addEventListener('click', e => { if (e.target.id === 'siteModal') closeSiteModal(); });
     document.getElementById('userModal').addEventListener('click', e => { if (e.target.id === 'userModal') document.getElementById('userModal').classList.remove('active'); });
     document.getElementById('changePasswordModal').addEventListener('click', e => { if (e.target.id === 'changePasswordModal') closeChangePasswordModal(); });
+    document.getElementById('domainModal').addEventListener('click', e => { if (e.target.id === 'domainModal') document.getElementById('domainModal').classList.remove('active'); });
   </script>
 </body>
 </html>

@@ -13,6 +13,37 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
 const isProduction = process.env.NODE_ENV === 'production';
+
+// Brasília (America/Sao_Paulo = UTC-3) – retorna { start, end } em ISO UTC para filtro de datas
+function getBrasiliaDateRange(period) {
+  const TZ_OFFSET_MS = -3 * 60 * 60 * 1000;
+  const now = new Date();
+  const brNow = new Date(now.getTime() + TZ_OFFSET_MS);
+  const brDateStr = brNow.toISOString().slice(0, 10);
+  const startToday = brDateStr + 'T03:00:00.000Z';
+  const nextDay = new Date(brDateStr + 'T12:00:00.000Z');
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const endToday = nextDay.toISOString().slice(0, 10) + 'T03:00:00.000Z';
+
+  switch (period) {
+    case 'today':
+      return { start: startToday, end: endToday };
+    case 'yesterday': {
+      const prev = new Date(brDateStr + 'T12:00:00.000Z');
+      prev.setUTCDate(prev.getUTCDate() - 1);
+      const prevStr = prev.toISOString().slice(0, 10);
+      return { start: prevStr + 'T03:00:00.000Z', end: startToday };
+    }
+    case '7d':
+      return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), end: endToday };
+    case '15d':
+      return { start: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(), end: endToday };
+    case '30d':
+      return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(), end: endToday };
+    default:
+      return { start: startToday, end: endToday };
+  }
+}
 // Railway: atrás de proxy HTTPS – precisa confiar no proxy para cookie e sessão
 if (isProduction) app.set('trust proxy', 1);
 // Railway: usa volume para persistir o banco; local: usa a pasta do projeto
@@ -210,6 +241,7 @@ async function initDb() {
   try { db.run('ALTER TABLE users ADD COLUMN cloaker_base_url TEXT'); } catch (e) {}
   db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
   try { db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('cloaker_base_url', '')"); } catch (e) {}
+  db.run(`CREATE TABLE IF NOT EXISTS allowed_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT UNIQUE NOT NULL, description TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
 
   saveDb();
   console.log('✅ Banco de dados inicializado');
@@ -524,6 +556,39 @@ app.post('/api/users', (req, res) => {
   }
 });
 
+// API: Domínios cadastrados (admin) – listar, criar, excluir
+app.get('/api/domains', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  const list = all('SELECT id, domain, description, created_at FROM allowed_domains ORDER BY domain ASC');
+  res.json(list);
+});
+
+app.post('/api/domains', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  const { domain, description } = req.body || {};
+  const d = (domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
+  if (!d) return res.status(400).json({ error: 'Informe o domínio' });
+  try {
+    run('INSERT INTO allowed_domains (domain, description) VALUES (?, ?)', [d, (description || '').trim() || null]);
+    const row = get('SELECT id, domain, description, created_at FROM allowed_domains WHERE id = last_insert_rowid()');
+    res.json(row);
+  } catch (e) {
+    res.status(400).json({ error: 'Domínio já cadastrado' });
+  }
+});
+
+app.delete('/api/domains/:id', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  run('DELETE FROM allowed_domains WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
 // API: Buscar configurações do site (para o script)
 app.get('/api/config/:siteId', (req, res) => {
   const site = get('SELECT * FROM sites WHERE site_id = ? AND is_active = 1', [req.params.siteId]);
@@ -791,27 +856,19 @@ app.get('/api/visitors', (req, res) => {
   });
 });
 
-// API: Estatísticas (apenas dos sites do usuário)
+// API: Estatísticas (apenas dos sites do usuário) – filtro por horário de Brasília
 app.get('/api/stats', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
   const userId = req.session.userId;
   const period = req.query.period || 'today';
   const siteId = req.query.site || null;
-  
-  let dateCondition = '';
-  switch (period) {
-    case 'today':   dateCondition = "v.created_at >= date('now') AND v.created_at <= datetime('now')"; break;
-    case 'yesterday': dateCondition = "v.created_at >= date('now', '-1 day') AND v.created_at < date('now')"; break;
-    case '7d':      dateCondition = "v.created_at >= datetime('now', '-7 days')"; break;
-    case '15d':     dateCondition = "v.created_at >= datetime('now', '-15 days')"; break;
-    case '30d':     dateCondition = "v.created_at >= datetime('now', '-30 days')"; break;
-    default:       dateCondition = "v.created_at >= date('now') AND v.created_at <= datetime('now')";
-  }
+
+  const { start, end } = getBrasiliaDateRange(period);
 
   const userSites = "v.site_id IN (SELECT site_id FROM sites WHERE user_id = ?)";
   const siteFilter = siteId && siteId !== 'all' ? " AND v.site_id = ?" : '';
-  const params = siteId && siteId !== 'all' ? [userId, siteId] : [userId];
-  const baseWhere = `FROM visitors v WHERE (${dateCondition}) AND ${userSites}${siteFilter}`;
+  const params = siteId && siteId !== 'all' ? [userId, start, end, siteId] : [userId, start, end];
+  const baseWhere = `FROM visitors v WHERE v.created_at >= ? AND v.created_at < ? AND ${userSites}${siteFilter}`;
 
   const stats = {
     total: get(`SELECT COUNT(*) as count ${baseWhere}`, params)?.count || 0,
@@ -827,7 +884,7 @@ app.get('/api/stats', (req, res) => {
     byReferrer: all(`SELECT v.referrer as referrer, COUNT(*) as count ${baseWhere} AND v.referrer IS NOT NULL AND v.referrer != '' GROUP BY v.referrer ORDER BY count DESC LIMIT 10`, params),
     byHour: all(`SELECT strftime('%Y-%m-%d %H:00', v.created_at) as hour, COUNT(*) as total, SUM(CASE WHEN v.was_blocked = 1 THEN 1 ELSE 0 END) as blocked, SUM(CASE WHEN v.was_blocked = 0 THEN 1 ELSE 0 END) as allowed ${baseWhere} GROUP BY hour ORDER BY hour DESC LIMIT 24`, params),
     blockReasons: all(`SELECT v.block_reason as block_reason, COUNT(*) as count ${baseWhere} AND v.was_blocked = 1 AND v.block_reason IS NOT NULL GROUP BY v.block_reason ORDER BY count DESC`, params),
-    bySite: all(`SELECT v.site_id as site_id, COUNT(*) as count FROM visitors v WHERE v.site_id IN (SELECT site_id FROM sites WHERE user_id = ?) AND (${dateCondition}) GROUP BY v.site_id ORDER BY count DESC`, [userId])
+    bySite: all(`SELECT v.site_id as site_id, COUNT(*) as count FROM visitors v WHERE v.site_id IN (SELECT site_id FROM sites WHERE user_id = ?) AND v.created_at >= ? AND v.created_at < ? GROUP BY v.site_id ORDER BY count DESC`, [userId, start, end])
   };
 
   res.json(stats);
