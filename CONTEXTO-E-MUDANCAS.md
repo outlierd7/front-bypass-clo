@@ -82,6 +82,8 @@ Este arquivo resume o estado atual do projeto e tudo que foi implementado nesta 
 2. Na outra aba do Cursor (workspace do clone), abra ou referencie este arquivo (@CONTEXTO-E-MUDANCAS.md) quando for pedir modificações.
 3. Assim o assistente (ou você) tem o resumo do que já foi feito e do que ainda quer modificar, sem depender só do histórico desta conversa.
 
+**Convenção:** Toda alteração feita pelo assistente deve ser commitada e enviada ao GitHub (`git add .` → `git commit` → `git push origin main`) sem pedir autorização ao usuário.
+
 ---
 
 ## Próximos passos (exemplos – ajuste ao que você quiser)
