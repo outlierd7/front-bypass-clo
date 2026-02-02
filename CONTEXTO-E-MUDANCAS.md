@@ -101,6 +101,17 @@ Este arquivo resume o estado atual do projeto e tudo que foi implementado nesta 
 
 ---
 
+### 6. Melhorias visuais e UX (design futurista)
+
+- **Visual moderno e profissional:** Nova paleta de cores (azul neon, roxo, gradientes), fontes Inter, animações suaves, sombras neon.
+- **Dashboard responsivo:** Menu lateral em drawer no mobile, stats grid 2 colunas em tablet e 1 em mobile, tabelas com scroll horizontal.
+- **Seletor de países:** Trocado de inputs texto para **checkboxes** com lista completa de países (Brasil, Argentina, EUA, etc.). Botões **"Marcar todos"** e **"Desmarcar todos"** em cada seção (Permitidos e Bloqueados).
+- **Seção Domínios (admin):** Lista de domínios cadastrados (allowed_domains). Admin pode adicionar/remover. **Importante:** domínio só funciona na internet se adicionado no Railway (Networking → Custom Domain) e no DNS (CNAME). A lista no painel é só organização interna.
+- **Dashboard:** "Última atualização: HH:MM (Brasília)" com animação de pulso (•) verde. Título com gradiente.
+- **Cards, buttons, badges:** Efeitos hover com elevação, sombras neon, gradientes, animações de fadeIn nas seções.
+
+---
+
 ## Próximos passos (exemplos – ajuste ao que você quiser)
 
 - Listar aqui as modificações que você ainda quer fazer no clone (ex.: novos relatórios, novos campos em sites, mudanças no fluxo de login, etc.).
