@@ -14,34 +14,36 @@ const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Brasília (America/Sao_Paulo = UTC-3) – retorna { start, end } em ISO UTC para filtro de datas
+// Brasília (America/Sao_Paulo = UTC-3) – retorna { start, end } em formato SQLite 'YYYY-MM-DD HH:MM:SS' (UTC)
+// para comparação com created_at (datetime('now') no SQLite usa esse formato)
 function getBrasiliaDateRange(period) {
+  const toSqliteUtc = (d) => {
+    const y = d.getUTCFullYear(), m = String(d.getUTCMonth() + 1).padStart(2, '0'), day = String(d.getUTCDate()).padStart(2, '0');
+    const h = String(d.getUTCHours()).padStart(2, '0'), min = String(d.getUTCMinutes()).padStart(2, '0'), s = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${y}-${m}-${day} ${h}:${min}:${s}`;
+  };
   const TZ_OFFSET_MS = -3 * 60 * 60 * 1000;
   const now = new Date();
   const brNow = new Date(now.getTime() + TZ_OFFSET_MS);
   const brDateStr = brNow.toISOString().slice(0, 10);
-  const startToday = brDateStr + 'T03:00:00.000Z';
-  const nextDay = new Date(brDateStr + 'T12:00:00.000Z');
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const endToday = nextDay.toISOString().slice(0, 10) + 'T03:00:00.000Z';
+  const startToday = new Date(brDateStr + 'T03:00:00.000Z');
+  const endToday = new Date(startToday.getTime() + 24 * 60 * 60 * 1000);
 
   switch (period) {
     case 'today':
-      return { start: startToday, end: endToday };
+      return { start: toSqliteUtc(startToday), end: toSqliteUtc(endToday) };
     case 'yesterday': {
-      const prev = new Date(brDateStr + 'T12:00:00.000Z');
-      prev.setUTCDate(prev.getUTCDate() - 1);
-      const prevStr = prev.toISOString().slice(0, 10);
-      return { start: prevStr + 'T03:00:00.000Z', end: startToday };
+      const prevStart = new Date(startToday.getTime() - 24 * 60 * 60 * 1000);
+      return { start: toSqliteUtc(prevStart), end: toSqliteUtc(startToday) };
     }
     case '7d':
-      return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), end: endToday };
+      return { start: toSqliteUtc(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)), end: toSqliteUtc(endToday) };
     case '15d':
-      return { start: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(), end: endToday };
+      return { start: toSqliteUtc(new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000)), end: toSqliteUtc(endToday) };
     case '30d':
-      return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(), end: endToday };
+      return { start: toSqliteUtc(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)), end: toSqliteUtc(endToday) };
     default:
-      return { start: startToday, end: endToday };
+      return { start: toSqliteUtc(startToday), end: toSqliteUtc(endToday) };
   }
 }
 // Railway: atrás de proxy HTTPS – precisa confiar no proxy para cookie e sessão
@@ -163,6 +165,7 @@ async function initDb() {
   try { db.run('ALTER TABLE sites ADD COLUMN target_url TEXT'); } catch (e) {}
   try { db.run('ALTER TABLE sites ADD COLUMN user_id INTEGER'); } catch (e) {}
   try { db.run('ALTER TABLE sites ADD COLUMN required_ref_token TEXT'); } catch (e) {}
+  try { db.run("ALTER TABLE sites ADD COLUMN block_behavior TEXT DEFAULT 'redirect'"); } catch (e) {}
   // Atribuir sites existentes ao primeiro admin (para migração)
   const firstAdmin = get('SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', ['admin']);
   if (firstAdmin) {
@@ -761,8 +764,8 @@ app.post('/api/sites', (req, res) => {
   const target = (target_url || '').trim() || null;
   const userId = req.session.userId;
   try {
-    run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, datetime('now'))`,
-      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', countries, refToken]);
+    run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, datetime('now'))`,
+      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', (req.body.block_behavior === 'embed' ? 'embed' : 'redirect'), countries, refToken]);
     const site = get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
   } catch (error) {
@@ -783,15 +786,16 @@ app.put('/api/sites/:siteId', (req, res) => {
     let refToken = existing.required_ref_token;
     if (data.regenerate_ref_token) refToken = generateRefToken();
     else if (data.required_ref_token !== undefined) refToken = (data.required_ref_token || '').trim() || null;
+    const blockBehavior = data.block_behavior === 'embed' ? 'embed' : 'redirect';
     run(`
       UPDATE sites SET
-        name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?,
+        name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?, block_behavior = ?,
         block_desktop = ?, block_facebook_library = ?, block_bots = ?,
         block_vpn = ?, block_devtools = ?,
         allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?
       WHERE site_id = ?
     `, [
-      data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url,
+      data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url, blockBehavior,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
       data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0, refToken,
@@ -996,6 +1000,42 @@ async function getGeoByIP(ip) {
   return out;
 }
 
+// Helper: ao bloquear com opção "mostrar no mesmo link", busca a URL e devolve o HTML com <base> para links relativos
+async function sendEmbeddedPage(res, targetUrl) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' }
+    });
+    clearTimeout(timeout);
+    if (!response.ok) {
+      res.redirect(302, targetUrl);
+      return;
+    }
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('text/html')) {
+      res.redirect(302, targetUrl);
+      return;
+    }
+    let html = await response.text();
+    const baseOrigin = (() => { try { return new URL(targetUrl).origin + '/'; } catch (e) { return targetUrl; } })();
+    const baseTag = `<base href="${baseOrigin.replace(/"/g, '&quot;')}">`;
+    if (/<head[^>]*>/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+    } else {
+      html = baseTag + html;
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    res.redirect(302, targetUrl);
+  }
+}
+
 // ========== LINK PARA ADS: /go/:code ==========
 // Você cola seu link no painel → o sistema gera um novo link → use esse link nos anúncios.
 // Quem clica passa aqui: checamos (desktop, bot, emulador, país por IP) e redirecionamos.
@@ -1014,7 +1054,9 @@ app.get('/go/:code', async (req, res) => {
       const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
       run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, datetime('now'))`,
         [site.site_id, (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim() || 'unknown', req.headers['user-agent'] || '', (req.headers['referer'] || req.headers['referrer'] || ''), fullUrl, null, null, null, null, null, null, null, blockReasonRef]);
-      return res.redirect(302, site.redirect_url || 'https://www.google.com/');
+      const blockUrl = site.redirect_url || 'https://www.google.com/';
+      if (site.block_behavior === 'embed') return sendEmbeddedPage(res, blockUrl);
+      return res.redirect(302, blockUrl);
     }
   }
 
@@ -1082,7 +1124,9 @@ app.get('/go/:code', async (req, res) => {
     [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebookParams]);
 
   if (wasBlocked) {
-    return res.redirect(302, site.redirect_url || 'https://www.google.com/');
+    const blockUrl = site.redirect_url || 'https://www.google.com/';
+    if (site.block_behavior === 'embed') return sendEmbeddedPage(res, blockUrl);
+    return res.redirect(302, blockUrl);
   }
 
   // Redireciona para a oferta com a mesma query string (UTMs, fbclid, etc.) para a landing receber

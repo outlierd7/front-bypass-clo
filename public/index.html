@@ -127,6 +127,8 @@
 
     .form-group { margin-bottom: 24px; }
     .form-label { display: block; margin-bottom: 10px; color: var(--text-secondary); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .radio-label { display: flex; align-items: center; gap: 10px; color: var(--text-primary); font-size: 14px; cursor: pointer; }
+    .radio-label input[type="radio"] { margin: 0; }
     .form-input, .form-select { width: 100%; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; transition: all 0.3s; }
     .form-input:focus, .form-select:focus { outline: none; border-color: var(--neon-blue); box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1), 0 0 15px rgba(0, 217, 255, 0.2); }
 
@@ -689,6 +691,13 @@
         <div class="form-group">
           <label class="form-label">URL de Redirecionamento (quando bloquear)</label>
           <input type="text" class="form-input" id="siteRedirectUrl" value="https://www.google.com/" placeholder="Para onde mandar quem for bloqueado">
+          <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label">Ao bloquear, o que fazer com essa URL?</label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label class="radio-label"><input type="radio" name="siteBlockBehavior" id="siteBlockBehaviorRedirect" value="redirect" checked> Redirecionar para a URL (o visitante é enviado para o link acima)</label>
+              <label class="radio-label"><input type="radio" name="siteBlockBehavior" id="siteBlockBehaviorEmbed" value="embed"> Mostrar o conteúdo da URL nesta mesma página (sem redirecionar)</label>
+            </div>
+          </div>
         </div>
         <h4 style="margin: 25px 0 15px;">Regras de Bloqueio</h4>
         <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Padrão: <strong>apenas Brasil (BR)</strong>; bloquear desktops, Facebook, bots, VPN/proxy e DevTools.</p>
@@ -792,6 +801,22 @@
       if (allowed && blocked) {
         allowed.innerHTML = COUNTRY_LIST.map(c => item(c, 'allowed')).join('');
         blocked.innerHTML = COUNTRY_LIST.map(c => item(c, 'blocked')).join('');
+        allowed.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', function() {
+            if (this.checked) {
+              const other = document.getElementById('country-blocked-' + this.value);
+              if (other && other.checked) { other.checked = false; alert('O país ' + this.value + ' foi removido de "Países Bloqueados" porque não pode estar nos dois ao mesmo tempo.'); }
+            }
+          });
+        });
+        blocked.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', function() {
+            if (this.checked) {
+              const other = document.getElementById('country-allowed-' + this.value);
+              if (other && other.checked) { other.checked = false; alert('O país ' + this.value + ' foi removido de "Países Permitidos" porque não pode estar nos dois ao mesmo tempo.'); }
+            }
+          });
+        });
       }
     }
 
@@ -942,6 +967,7 @@
             <div class="code-block" style="font-size: 12px; padding: 10px;">
               <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="if ('${s.link_code || ''}') copyToClipboard(getBaseUrl() + '/go/${s.link_code || ''}'); else alert('Edite o site e salve a URL do seu site para gerar o link.');"><i class="ri-file-copy-line"></i></button>
               ${s.link_code ? (getBaseUrl() + '/go/' + s.link_code) : 'Salve a URL do seu site e edite o site para gerar o link.'}
+              ${(s.required_ref_token && s.required_ref_token.trim()) ? ' <span style="color: var(--accent); font-weight: 600;"> (ref=' + (s.required_ref_token || '') + ')</span>' : ''}
             </div>
             <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Use esse link como <strong>URL de destino</strong> nos seus anúncios. Não precisa colocar script no seu site.</p>
           </div>
@@ -958,6 +984,8 @@
       document.getElementById('siteDomain').value = '';
       document.getElementById('siteTargetUrl').value = '';
       document.getElementById('siteRedirectUrl').value = 'https://www.google.com/';
+      document.getElementById('siteBlockBehaviorRedirect').checked = true;
+      document.getElementById('siteBlockBehaviorEmbed').checked = false;
       document.getElementById('siteBlockDesktop').checked = true;
       document.getElementById('siteBlockFacebook').checked = true;
       document.getElementById('siteBlockBots').checked = true;
@@ -980,6 +1008,9 @@
       document.getElementById('siteDomain').value = site.domain || '';
       document.getElementById('siteTargetUrl').value = site.target_url || '';
       document.getElementById('siteRedirectUrl').value = site.redirect_url || 'https://www.google.com/';
+      const isEmbed = (site.block_behavior || 'redirect') === 'embed';
+      document.getElementById('siteBlockBehaviorRedirect').checked = !isEmbed;
+      document.getElementById('siteBlockBehaviorEmbed').checked = isEmbed;
       document.getElementById('siteBlockDesktop').checked = site.block_desktop;
       document.getElementById('siteBlockFacebook').checked = site.block_facebook_library;
       document.getElementById('siteBlockBots').checked = site.block_bots;
@@ -1018,6 +1049,7 @@
         domain: document.getElementById('siteDomain').value,
         target_url: document.getElementById('siteTargetUrl').value,
         redirect_url: document.getElementById('siteRedirectUrl').value,
+        block_behavior: document.getElementById('siteBlockBehaviorEmbed').checked ? 'embed' : 'redirect',
         block_desktop: document.getElementById('siteBlockDesktop').checked,
         block_facebook_library: document.getElementById('siteBlockFacebook').checked,
         block_bots: document.getElementById('siteBlockBots').checked,
