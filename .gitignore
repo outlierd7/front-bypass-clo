@@ -6,3 +6,5 @@ cloaker.db
 *.log
 .DS_Store
 Thumbs.db
+backup-empty-for-tables.json
+*-backup-*.json
