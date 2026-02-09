@@ -425,31 +425,6 @@ function getCnameTarget(req) {
   return '';
 }
 
-// Helper: registrar domínio no Railway via API (só quando RAILWAY_API_TOKEN e RAILWAY_SERVICE_ID estão definidos)
-async function railwayAddCustomDomain(domain) {
-  const token = process.env.RAILWAY_API_TOKEN;
-  const serviceId = process.env.RAILWAY_SERVICE_ID;
-  if (!token || !serviceId) return { ok: false, reason: 'Variáveis Railway não configuradas' };
-  const d = (domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
-  if (!d) return { ok: false, reason: 'Domínio inválido' };
-  try {
-    const res = await fetch('https://backboard.railway.app/graphql/v2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({
-        query: `mutation customDomainCreate($input: CustomDomainCreateInput!) { customDomainCreate(input: $input) { id domain } }`,
-        variables: { input: { serviceId, domain: d } }
-      })
-    });
-    const json = await res.json();
-    if (json.errors && json.errors.length) return { ok: false, reason: json.errors[0].message || 'Erro Railway API' };
-    if (json.data && json.data.customDomainCreate) return { ok: true, data: json.data.customDomainCreate };
-    return { ok: false, reason: 'Resposta inesperada da API Railway' };
-  } catch (e) {
-    return { ok: false, reason: e.message || 'Falha ao chamar Railway API' };
-  }
-}
-
 // API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
 app.get('/api/domains', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
@@ -468,13 +443,8 @@ app.post('/api/domains', async (req, res) => {
   try {
     await db.run('INSERT INTO allowed_domains (user_id, domain, description) VALUES (?, ?, ?)', [userId, d, (description || '').trim() || null]);
     const row = await db.get('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? AND domain = ? ORDER BY id DESC LIMIT 1', [userId, d]);
-    let railwaySync = null;
-    const isAdmin = req.session.userRole === 'admin';
-    if (isAdmin && process.env.RAILWAY_API_TOKEN && process.env.RAILWAY_SERVICE_ID) {
-      railwaySync = await railwayAddCustomDomain(d);
-    }
     const payload = row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString() };
-    if (railwaySync) payload.railwaySync = railwaySync.ok ? { added: true } : { added: false, message: 'Adicione em Railway → Networking → Custom Domain para ativar.' };
+    payload.nextStep = 'Adicione em Railway → Settings → Networking → + Custom Domain e configure o CNAME no seu provedor conforme a lista.';
     res.json(payload);
   } catch (e) {
     res.status(400).json({ error: 'Domínio já cadastrado para você' });
