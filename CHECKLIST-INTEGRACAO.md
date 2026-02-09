@@ -34,6 +34,8 @@ Guarde essa URL para o passo 3.
 
 Depois do deploy, o app passa a usar o Supabase. Na primeira requisição, as tabelas são criadas se ainda não existirem.
 
+**Login com várias réplicas:** Com `DATABASE_URL` definido, as sessões de login são salvas no **PostgreSQL** (Supabase). Assim o login funciona em todas as réplicas. Se definir `SESSION_SECRET` no Railway, use um valor fixo e não mude entre deploys.
+
 ---
 
 ## 4. (Opcional) Migrar dados do banco antigo para o Supabase

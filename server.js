@@ -14,6 +14,23 @@ const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Sessão em PostgreSQL quando DATABASE_URL existe (múltiplas réplicas compartilham o mesmo login)
+let sessionStore = undefined;
+if (process.env.DATABASE_URL) {
+  try {
+    const pg = require('pg');
+    const connectPgSimple = require('connect-pg-simple');
+    const PgSession = connectPgSimple(session);
+    const sessionPool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
+    sessionStore = new PgSession({ pool: sessionPool, createTableIfMissing: true });
+  } catch (e) {
+    console.warn('Session store PG não disponível, usando memória:', e.message);
+  }
+}
+
 // Brasília (America/Sao_Paulo = UTC-3) – retorna { start, end } em formato SQLite 'YYYY-MM-DD HH:MM:SS' (UTC)
 // para comparação com created_at (datetime('now') no SQLite usa esse formato)
 function getBrasiliaDateRange(period) {
@@ -52,7 +69,7 @@ if (isProduction) app.set('trust proxy', 1);
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
-app.use(session({
+const sessionOpts = {
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -63,7 +80,9 @@ app.use(session({
     maxAge: 7 * 24 * 60 * 60 * 1000,
     sameSite: 'lax'
   }
-}));
+};
+if (sessionStore) sessionOpts.store = sessionStore;
+app.use(session(sessionOpts));
 app.use(express.static('public'));
 
 // Autenticação: exige sessão para / e /api/* (exceto login, setup, config, go, t)
@@ -115,7 +134,10 @@ app.post('/api/login', async (req, res) => {
   if (status !== 'active') return res.status(403).json({ error: 'Conta inativa.' });
   req.session.userId = user.id;
   req.session.userRole = user.role;
-  res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar sessão' });
+    res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+  });
 });
 
 // API: Logout
