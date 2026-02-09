@@ -474,7 +474,7 @@ app.post('/api/domains', async (req, res) => {
       railwaySync = await railwayAddCustomDomain(d);
     }
     const payload = row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString() };
-    if (railwaySync) payload.railwaySync = railwaySync.ok ? { added: true } : { added: false, message: railwaySync.reason };
+    if (railwaySync) payload.railwaySync = railwaySync.ok ? { added: true } : { added: false, message: 'Adicione em Railway → Networking → Custom Domain para ativar.' };
     res.json(payload);
   } catch (e) {
     res.status(400).json({ error: 'Domínio já cadastrado para você' });
