@@ -234,6 +234,316 @@
       .stats-grid { grid-template-columns: 1fr; }
       .stat-value { font-size: 24px; }
     }
+
+    /* ========== VISUAL FUTURISTA ULTRA-MODERNO ========== */
+    
+    /* Glassmorphism e efeitos de vidro */
+    .glass-card {
+      background: rgba(30, 41, 59, 0.4) !important;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(0, 217, 255, 0.2) !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 
+                  0 0 0 1px rgba(0, 217, 255, 0.1) inset,
+                  0 0 40px rgba(103, 126, 234, 0.1) !important;
+      position: relative;
+      overflow: hidden;
+    }
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.1), transparent);
+      animation: shimmer 3s infinite;
+    }
+    @keyframes shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+    
+    /* Efeito neon nos textos */
+    .neon-text {
+      background: linear-gradient(135deg, #00d9ff, #b794f6, #f687b3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(0, 217, 255, 0.5);
+      animation: neonPulse 2s ease-in-out infinite alternate;
+    }
+    @keyframes neonPulse {
+      from { filter: brightness(1) drop-shadow(0 0 10px rgba(0, 217, 255, 0.5)); }
+      to { filter: brightness(1.2) drop-shadow(0 0 20px rgba(0, 217, 255, 0.8)); }
+    }
+    
+    /* Inputs futuristas */
+    .futuristic-input {
+      background: rgba(17, 24, 39, 0.6) !important;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 217, 255, 0.3) !important;
+      border-radius: 12px !important;
+      padding: 14px 18px !important;
+      color: var(--text-primary) !important;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      position: relative;
+    }
+    .futuristic-input:focus {
+      outline: none !important;
+      border-color: #00d9ff !important;
+      box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.2),
+                  0 0 20px rgba(0, 217, 255, 0.4),
+                  inset 0 0 20px rgba(0, 217, 255, 0.1) !important;
+      background: rgba(17, 24, 39, 0.8) !important;
+      transform: translateY(-2px);
+    }
+    .futuristic-input::placeholder {
+      color: rgba(156, 163, 175, 0.5);
+    }
+    
+    /* Botões neon */
+    .neon-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+      border: none !important;
+      box-shadow: 0 4px 15px rgba(103, 126, 234, 0.4),
+                  0 0 30px rgba(0, 217, 255, 0.3),
+                  inset 0 0 20px rgba(255, 255, 255, 0.1) !important;
+      position: relative;
+      overflow: hidden;
+    }
+    .neon-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+    .neon-btn:hover::before {
+      width: 400px;
+      height: 400px;
+    }
+    .neon-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 25px rgba(103, 126, 234, 0.6),
+                  0 0 50px rgba(0, 217, 255, 0.5),
+                  inset 0 0 30px rgba(255, 255, 255, 0.2) !important;
+    }
+    .neon-btn:active {
+      transform: translateY(-1px) scale(0.98);
+    }
+    
+    /* Background animado com partículas */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(0, 217, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(183, 148, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(246, 135, 179, 0.1) 0%, transparent 50%);
+      animation: backgroundShift 20s ease infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+    @keyframes backgroundShift {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.1); }
+    }
+    
+    /* Cards com bordas neon animadas */
+    .card {
+      position: relative;
+      overflow: hidden;
+    }
+    .card::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, #00d9ff, #b794f6, #f687b3, #00d9ff);
+      background-size: 400% 400%;
+      border-radius: 16px;
+      z-index: -1;
+      opacity: 0;
+      animation: borderGlow 3s ease infinite;
+      transition: opacity 0.3s;
+    }
+    .card:hover::after {
+      opacity: 0.6;
+    }
+    @keyframes borderGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    
+    /* Sidebar com efeito de profundidade */
+    .sidebar {
+      background: linear-gradient(180deg, 
+        rgba(17, 24, 39, 0.95) 0%, 
+        rgba(10, 14, 39, 0.98) 100%) !important;
+      backdrop-filter: blur(30px) saturate(200%);
+      -webkit-backdrop-filter: blur(30px) saturate(200%);
+      box-shadow: 4px 0 40px rgba(0, 0, 0, 0.6),
+                  inset -1px 0 0 rgba(0, 217, 255, 0.1) !important;
+    }
+    
+    /* Nav links com efeito holográfico */
+    .nav-link {
+      position: relative;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #00d9ff, #b794f6);
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+    }
+    .nav-link:hover::after,
+    .nav-link.active::after {
+      width: 100%;
+    }
+    
+    /* Stat cards com efeito de energia */
+    .stat-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(0, 217, 255, 0.1) 0%, transparent 70%);
+      animation: energyPulse 4s ease infinite;
+    }
+    @keyframes energyPulse {
+      0%, 100% { transform: scale(0.8); opacity: 0.5; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+    }
+    
+    /* Tabelas com efeito de scan */
+    tr {
+      position: relative;
+    }
+    tr::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 3px;
+      height: 100%;
+      background: linear-gradient(180deg, transparent, #00d9ff, transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    tr:hover::before {
+      opacity: 1;
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+    }
+    
+    /* Headers com gradiente animado */
+    .header h2 {
+      position: relative;
+      display: inline-block;
+    }
+    .header h2::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, #00d9ff, #b794f6, #f687b3);
+      border-radius: 2px;
+      box-shadow: 0 0 15px rgba(0, 217, 255, 0.6);
+      animation: underlineGlow 2s ease infinite;
+    }
+    @keyframes underlineGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(0, 217, 255, 0.6); }
+      50% { box-shadow: 0 0 25px rgba(0, 217, 255, 0.9); }
+    }
+    
+    /* Melhorias nos botões existentes */
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+      box-shadow: 0 4px 20px rgba(103, 126, 234, 0.5),
+                  0 0 40px rgba(0, 217, 255, 0.3) !important;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 8px 30px rgba(103, 126, 234, 0.7),
+                  0 0 60px rgba(0, 217, 255, 0.5) !important;
+    }
+    
+    /* Form inputs melhorados */
+    .form-input:focus,
+    .form-select:focus {
+      border-color: #00d9ff !important;
+      box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.2),
+                  0 0 25px rgba(0, 217, 255, 0.4) !important;
+    }
+    
+    /* Scrollbar futurista */
+    ::-webkit-scrollbar {
+      width: 12px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(17, 24, 39, 0.5);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #00d9ff, #b794f6);
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #00f0ff, #c8a5f8);
+      box-shadow: 0 0 15px rgba(0, 217, 255, 0.8);
+    }
+    
+    /* Efeito de loading melhorado */
+    .spinner {
+      border: 4px solid rgba(0, 217, 255, 0.2) !important;
+      border-top-color: #00d9ff !important;
+      box-shadow: 0 0 20px rgba(0, 217, 255, 0.5),
+                  inset 0 0 20px rgba(0, 217, 255, 0.1) !important;
+    }
+    
+    /* Badges com brilho */
+    .badge {
+      position: relative;
+      overflow: hidden;
+    }
+    .badge::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+      animation: badgeShine 2s ease infinite;
+    }
+    @keyframes badgeShine {
+      0%, 100% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0; }
+      50% { transform: translate(-50%, -50%) rotate(180deg); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -497,34 +807,46 @@
     <!-- Configurações (domínio do cloaker – por usuário) -->
     <section id="settings" class="section">
       <div class="header">
-        <h2>Configurações da Conta</h2>
+        <h2><span class="neon-text">Configurações da Conta</span></h2>
       </div>
-      <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="ri-global-line"></i> Meu domínio do Cloaker</h3></div>
+      <div class="card glass-card">
+        <div class="card-header">
+          <h3 class="card-title"><i class="ri-user-line"></i> Alterar Usuário</h3>
+        </div>
         <div class="card-body">
-          <p style="color: var(--text-secondary); margin-bottom: 15px;">Cada usuário tem seu próprio domínio. Configure aqui o domínio que <strong>você</strong> vai usar nos links do cloaker. Os links gerados em "Meus Sites" e "Link para Ads" usarão este domínio na sua conta.</p>
+          <p style="color: var(--text-secondary); margin-bottom: 20px;">Altere seu nome de usuário para fazer login no painel.</p>
           <div class="form-group">
-            <label class="form-label">URL base do seu Cloaker (ex: https://cloaker.seudominio.com)</label>
-            <input type="url" class="form-input" id="cloakerBaseUrl" placeholder="https://cloaker.seudominio.com">
-            <small style="color: var(--text-secondary); font-size: 12px;">Deixe em branco para usar o domínio padrão do painel.</small>
+            <label class="form-label">Novo nome de usuário</label>
+            <input type="text" class="form-input futuristic-input" id="newUsername" placeholder="Digite o novo usuário">
+            <small style="color: var(--text-secondary); font-size: 12px;">Mínimo de 2 caracteres.</small>
           </div>
-          <button class="btn btn-primary" onclick="saveSettings()"><i class="ri-save-line"></i> Salvar</button>
-          <span id="settingsMsg" style="margin-left: 15px; font-size: 13px;"></span>
+          <button class="btn btn-primary neon-btn" onclick="updateUsername()"><i class="ri-save-line"></i> Salvar</button>
+          <span id="usernameMsg" style="margin-left: 15px; font-size: 13px;"></span>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="ri-radar-line"></i> Verificar propagação</h3></div>
+      <div class="card glass-card">
+        <div class="card-header">
+          <h3 class="card-title"><i class="ri-lock-password-line"></i> Alterar Senha</h3>
+        </div>
         <div class="card-body">
-          <p style="color: var(--text-secondary); margin-bottom: 15px;">Depois de configurar o CNAME no seu DNS, use o botão abaixo para testar se o domínio já está propagado e respondendo.</p>
-          <button type="button" class="btn btn-secondary" id="checkPropagationBtn" onclick="checkPropagation()"><i class="ri-search-line"></i> Testar propagação</button>
-          <div id="propagationResult" style="margin-top: 15px; display: none;">
-            <div id="propagationMessage" style="padding: 12px 16px; border-radius: 10px; font-size: 14px;"></div>
-            <pre id="propagationDetails" style="margin-top: 10px; font-size: 12px; color: var(--text-secondary); background: var(--bg-primary); padding: 12px; border-radius: 8px; overflow-x: auto; display: none;"></pre>
+          <p style="color: var(--text-secondary); margin-bottom: 20px;">Altere sua senha de acesso ao painel.</p>
+          <div class="form-group">
+            <label class="form-label">Senha atual</label>
+            <input type="password" class="form-input futuristic-input" id="currentPassword" placeholder="Digite sua senha atual">
           </div>
+          <div class="form-group">
+            <label class="form-label">Nova senha</label>
+            <input type="password" class="form-input futuristic-input" id="newPassword" placeholder="Digite a nova senha">
+            <small style="color: var(--text-secondary); font-size: 12px;">Mínimo de 6 caracteres.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirmar nova senha</label>
+            <input type="password" class="form-input futuristic-input" id="confirmPassword" placeholder="Digite a nova senha novamente">
+          </div>
+          <button class="btn btn-primary neon-btn" onclick="updatePassword()"><i class="ri-save-line"></i> Salvar</button>
+          <span id="passwordMsg" style="margin-left: 15px; font-size: 13px;"></span>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><h3 class="card-title"><i class="ri-file-list-3-line"></i> Como associar meu domínio (passo a passo)</h3></div>
         <div class="card-body">
           <ol style="color: var(--text-secondary); line-height: 2; padding-left: 20px; margin-bottom: 15px;">
             <li><strong>No Railway (obrigatório):</strong> Projeto → seu serviço → <strong>Networking</strong> → <strong>+ Custom Domain</strong> → adicione o domínio (ex: <code>cloaker.seudominio.com</code> ou <code>iniiciopropo.sbs</code>). Sem isso, o domínio não chega ao seu app.</li>
