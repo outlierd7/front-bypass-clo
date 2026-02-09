@@ -66,6 +66,22 @@ function getBrasiliaDateRange(period) {
 // Railway: atrás de proxy HTTPS – precisa confiar no proxy para cookie e sessão
 if (isProduction) app.set('trust proxy', 1);
 
+// Só um domínio pode acessar o painel; os outros servem apenas /go/ e /t/ (links gerados)
+const PANEL_DOMAIN = (process.env.PANEL_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').split(/[/:]/)[0];
+function isPanelRoute(path, method) {
+  if (path.startsWith('/go/') || path.startsWith('/t/')) return false;
+  if (method === 'GET' && path.match(/^\/api\/config\/[^/]+$/)) return false;
+  return true;
+}
+app.use((req, res, next) => {
+  if (!PANEL_DOMAIN) return next();
+  const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
+  if (!isPanelRoute(req.path, req.method)) return next(); // links cloaker: qualquer domínio
+  if (host === PANEL_DOMAIN) return next();
+  const proto = req.protocol || 'https';
+  return res.redirect(301, proto + '://' + PANEL_DOMAIN + (req.originalUrl || req.url || '/'));
+});
+
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -421,8 +437,8 @@ async function railwayAddCustomDomain(domain) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({
-        query: `mutation customDomainCreate($serviceId: String!, $domain: String!) { customDomainCreate(serviceId: $serviceId, domain: $domain) { id domain } }`,
-        variables: { serviceId, domain: d }
+        query: `mutation customDomainCreate($input: CustomDomainCreateInput!) { customDomainCreate(input: $input) { id domain } }`,
+        variables: { input: { serviceId, domain: d } }
       })
     });
     const json = await res.json();

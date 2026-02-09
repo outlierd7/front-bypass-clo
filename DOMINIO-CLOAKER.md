@@ -4,6 +4,16 @@ Cada usuário cadastrado pode configurar **seu próprio domínio** no painel. As
 
 ---
 
+## Um domínio para o painel, outros só para links
+
+- **Acesso ao site (login, painel):** só pode ser feito por **um** domínio. Esse é o domínio “principal” que você cadastra no Railway para acessar o painel (ex.: `painel.seudominio.com` ou o domínio `.up.railway.app`).
+- **Domínios cadastrados no painel (Domínios):** servem **apenas** para os **links gerados** (`/go/...` e `/t/...`). Quem acessar esses domínios pela raiz (ex.: `https://iniiciopropo.sbs/`) será redirecionado para o domínio do painel; não aparece login nem painel nesses domínios.
+- **Como ativar:** no Railway → **Variables** → adicione **`PANEL_DOMAIN`** = o host do domínio em que você quer acessar o painel (ex.: `painel.seudominio.com` ou `cloaker-pro-novo.up.railway.app`), **sem** `https://`. Só esse host poderá abrir login e painel; os outros continuam funcionando para os links cloaker.
+
+Se não definir `PANEL_DOMAIN`, o comportamento é o de antes: qualquer domínio que aponte para o app pode abrir o painel.
+
+---
+
 ## Onde cadastrar o domínio
 
 - **No painel do site (Domínios):** você cadastra o domínio e vê as **instruções** (CNAME e valor) para configurar no provedor do domínio.
