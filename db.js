@@ -144,6 +144,7 @@ async function initPg() {
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)
     `).catch(() => {});
+    try { await client.query('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) {}
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_visitors_site_created ON visitors(site_id, created_at)
     `).catch(() => {});
@@ -296,6 +297,7 @@ async function initSqlite() {
   try { db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('cloaker_base_url', '')"); } catch (e) {}
   db.run(`CREATE TABLE IF NOT EXISTS allowed_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, domain TEXT NOT NULL, description TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
   try { db.run('ALTER TABLE allowed_domains ADD COLUMN user_id INTEGER'); } catch (e) {}
+  try { db.run('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) {}
   try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)'); } catch (e) {}
 
   const firstAdmin = db.prepare("SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1");

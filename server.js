@@ -499,7 +499,7 @@ function addCustomDomainToRailway(domain) {
 app.get('/api/domains', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
   const userId = req.session.userId;
-  const list = await db.all('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? OR user_id IS NULL ORDER BY domain ASC', [userId]);
+  const list = await db.all('SELECT id, domain, description, created_at, railway_cname_target FROM allowed_domains WHERE user_id = ? OR user_id IS NULL ORDER BY domain ASC', [userId]);
   const cnameTarget = getCnameTarget(req);
   res.json({ domains: list, cnameTarget });
 });
@@ -512,14 +512,24 @@ app.post('/api/domains', async (req, res) => {
   if (!d) return res.status(400).json({ error: 'Informe o domínio' });
   try {
     await db.run('INSERT INTO allowed_domains (user_id, domain, description) VALUES (?, ?, ?)', [userId, d, (description || '').trim() || null]);
-    const row = await db.get('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? AND domain = ? ORDER BY id DESC LIMIT 1', [userId, d]);
-    const payload = row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString() };
+    let row = await db.get('SELECT id, domain, description, created_at, railway_cname_target FROM allowed_domains WHERE user_id = ? AND domain = ? ORDER BY id DESC LIMIT 1', [userId, d]);
+    const payload = row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString(), railway_cname_target: null };
     const user = await db.get('SELECT role FROM users WHERE id = ?', [userId]);
     const isAdmin = user && user.role === 'admin';
     if (isAdmin) {
       const railway = await addCustomDomainToRailway(d);
       if (railway.ok) {
-        payload.nextStep = 'Domínio cadastrado no painel e no Railway. Use a tabela "Configuração DNS" abaixo no seu provedor de DNS. Você pode verificar se já propagou com o botão "Verificar propagação".';
+        let cnameValue = null;
+        const dnsRecords = railway.data && railway.data.status && railway.data.status.dnsRecords;
+        if (Array.isArray(dnsRecords) && dnsRecords.length) {
+          const cnameRecord = dnsRecords.find(r => (r.recordType || '').toUpperCase() === 'CNAME') || dnsRecords[0];
+          cnameValue = (cnameRecord && cnameRecord.requiredValue) ? cnameRecord.requiredValue.trim() : null;
+        }
+        if (cnameValue && payload.id) {
+          await db.run('UPDATE allowed_domains SET railway_cname_target = ? WHERE id = ?', [cnameValue, payload.id]);
+          payload.railway_cname_target = cnameValue;
+        }
+        payload.nextStep = 'Domínio cadastrado no painel e no Railway. As configurações DNS deste domínio aparecem na tabela abaixo — use o Valor CNAME na coluna do domínio no seu provedor de DNS. Você pode verificar propagação com o botão "Verificar".';
         payload.railwaySynced = true;
       } else {
         const isMissingVars = (railway.error || '').indexOf('Variáveis Railway não configuradas') !== -1;
