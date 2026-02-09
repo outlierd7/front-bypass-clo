@@ -2297,7 +2297,7 @@
       if (!site || !site.link_code) return '';
       const path = buildLinkBase(site, baseUrl);
       const qs = buildLinkParams(site);
-      return qs ? path + qs : path;
+      return qs ? path + '?' + qs : path;
     }
 
     /** Apenas o domínio gerado: base + /go/code (sem query string) */
@@ -2307,14 +2307,14 @@
       return base + '/go/' + site.link_code;
     }
 
-    /** Apenas os parâmetros: ?ref=...&utm_... (string vazia se não houver) */
+    /** Apenas os parâmetros: ref=...&utm_... (sem "?", string vazia se não houver) */
     function buildLinkParams(site) {
       if (!site) return '';
       const params = [];
       if (site.required_ref_token && site.required_ref_token.trim()) params.push('ref=' + encodeURIComponent(site.required_ref_token));
       const def = (site.default_link_params || '').trim();
       if (def) params.push(def.startsWith('&') ? def.slice(1) : def);
-      return params.length ? '?' + params.join('&') : '';
+      return params.length ? params.join('&') : '';
     }
 
     async function saveSelectedDomain(siteId, domain) {
