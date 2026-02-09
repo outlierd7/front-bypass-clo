@@ -1838,7 +1838,7 @@
         document.getElementById('newDomainDesc').value = '';
         document.getElementById('domainModal').classList.remove('active');
         loadDomains();
-        if (data.nextStep) { if (msg) msg.textContent = ''; alert('Domínio cadastrado. ' + data.nextStep); }
+        if (data.nextStep) { if (msg) msg.textContent = ''; alert('Domínio cadastrado. ' + data.nextStep + (data.railwayError ? '\n\nErro Railway: ' + data.railwayError : '')); }
       } catch (e) { if (msg) msg.textContent = 'Erro de conexão'; }
     }
 

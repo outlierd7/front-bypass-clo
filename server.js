@@ -417,12 +417,14 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// CNAME target: só variáveis de ambiente. NUNCA usar o host da requisição — senão ao acessar por
-// domínio custom (ex.: iniiciopropo.sbs) apareceria esse domínio como "valor CNAME", que está errado.
-// O valor CNAME correto é o do Railway (ex.: qxn717p4.up.railway.app), vindo da API ou de APP_CNAME_TARGET/RAILWAY_STATIC_URL.
+// CNAME target: só variáveis de ambiente e só se for host do Railway (*.railway.app).
+// Se APP_CNAME_TARGET/RAILWAY_STATIC_URL estiver com domínio custom (ex.: iniiciopropo.sbs), ignora — senão aparece como "valor CNAME" errado.
 function getCnameTarget(req) {
   const fromEnv = process.env.APP_CNAME_TARGET || process.env.RAILWAY_STATIC_URL || '';
-  return fromEnv.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0] || '';
+  const host = fromEnv.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0] || '';
+  if (!host) return '';
+  if (/\.railway\.app$/i.test(host)) return host;
+  return '';
 }
 
 // Adiciona domínio customizado no Railway via API (evita passo manual no painel).
@@ -504,12 +506,13 @@ function removeCustomDomainFromRailway(domain) {
   if (!token || !serviceId || !projectId || !environmentId) return Promise.resolve({ ok: false });
 
   function graphql(body) {
+    const buf = Buffer.from(body, 'utf8');
     return new Promise((resolve, reject) => {
       const req = https.request({
         hostname: 'backboard.railway.app',
         path: '/graphql/v2',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Content-Length': buf.length }
       }, (res) => {
         let data = '';
         res.on('data', c => { data += c; });
@@ -519,7 +522,7 @@ function removeCustomDomainFromRailway(domain) {
       });
       req.on('error', reject);
       req.setTimeout(12000, () => { req.destroy(); reject(new Error('timeout')); });
-      req.write(body);
+      req.write(buf);
       req.end();
     });
   }
@@ -530,19 +533,32 @@ function removeCustomDomainFromRailway(domain) {
   });
 
   return graphql(listQuery).then(json => {
-    const custom = (json.data && json.data.domains && json.data.domains.customDomains) || [];
+    if (json.errors && json.errors.length) {
+      console.error('[Railway] domains query falhou:', json.errors[0].message);
+      return { ok: false, error: json.errors[0].message };
+    }
+    const domainsData = json.data && json.data.domains;
+    let custom = (domainsData && (domainsData.customDomains || domainsData.custom_domains)) || [];
+    if (Array.isArray(custom) && custom.length && custom[0].node) custom = custom.map(e => e.node);
     const d = domain.trim().toLowerCase();
-    const found = custom.find(c => (c.domain || '').toLowerCase() === d);
-    if (!found || !found.id) return { ok: true };
+    const found = custom.find(c => ((c.domain || c.name || '').toLowerCase()) === d);
+    if (!found || !(found.id || found.customDomainId)) return { ok: true };
+    const idToDelete = found.id || found.customDomainId;
     const deleteBody = JSON.stringify({
       query: 'mutation CustomDomainDelete($id: String!, $projectId: String!) { customDomainDelete(id: $id, projectId: $projectId) { id } }',
-      variables: { id: found.id, projectId }
+      variables: { id: idToDelete, projectId }
     });
     return graphql(deleteBody).then(del => {
-      if (del.errors && del.errors.length) return { ok: false, error: del.errors[0].message };
+      if (del.errors && del.errors.length) {
+        console.error('[Railway] customDomainDelete falhou:', del.errors[0].message);
+        return { ok: false, error: del.errors[0].message };
+      }
       return { ok: true };
     });
-  }).catch(e => ({ ok: false, error: e.message }));
+  }).catch(e => {
+    console.error('[Railway] removeCustomDomainFromRailway:', e.message);
+    return { ok: false, error: e.message };
+  });
 }
 
 // API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
@@ -587,10 +603,11 @@ app.post('/api/domains', async (req, res) => {
         if (isMissingVars) {
           payload.nextStep = 'Domínio cadastrado no painel. Para que os próximos sejam adicionados automaticamente no Railway (sem ir ao painel do Railway), configure no Railway → Variables: RAILWAY_API_TOKEN, RAILWAY_SERVICE_ID, RAILWAY_PROJECT_ID e RAILWAY_ENVIRONMENT_ID. Use a tabela DNS abaixo no seu provedor e, se precisar, adicione este domínio manualmente em Railway → Networking → + Custom Domain.';
         } else {
-          payload.nextStep = 'Domínio cadastrado no painel. Use a tabela "Configuração DNS" abaixo no seu provedor. Se o domínio não aparecer no Railway, adicione em Railway → Networking → + Custom Domain. Depois use "Verificar propagação" aqui no painel.';
+          payload.nextStep = 'Domínio cadastrado no painel. Não foi possível adicionar no Railway: ' + (railway.error || 'erro desconhecido') + '. Adicione manualmente em Railway → Networking → + Custom Domain e use a tabela DNS abaixo no provedor.';
         }
         payload.railwaySynced = false;
         payload.railwayError = railway.error;
+        if (railway.error) console.error('[Railway] customDomainCreate falhou:', railway.error);
       }
     } else {
       payload.nextStep = 'Domínio cadastrado. Use a tabela "Configuração DNS" na seção Domínios no seu provedor de DNS. Um admin pode configurar as variáveis Railway para que novos domínios sejam adicionados automaticamente no Railway.';
