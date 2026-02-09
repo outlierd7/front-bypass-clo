@@ -1826,6 +1826,10 @@
         document.getElementById('newDomainDesc').value = '';
         document.getElementById('domainModal').classList.remove('active');
         loadDomains();
+        if (data.railwaySync) {
+          if (data.railwaySync.added) { if (msg) msg.textContent = ''; alert('Domínio cadastrado e adicionado ao Railway. Configure o CNAME no seu provedor conforme as instruções na lista.'); }
+          else { if (msg) msg.textContent = ''; alert('Domínio salvo no painel. Não foi possível adicionar ao Railway: ' + (data.railwaySync.message || '') + '. Adicione manualmente em Railway → Networking → Custom Domain.'); }
+        }
       } catch (e) { if (msg) msg.textContent = 'Erro de conexão'; }
     }
 

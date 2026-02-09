@@ -39,7 +39,22 @@ Token: GitHub → Settings → Developer settings → Personal access tokens →
 2. **New Project** → **Deploy from GitHub repo**.
 3. Selecione o **repositório novo** (ex.: `cloaker-pro-novo`), não o `cloaktest`.
 4. Aguarde o deploy. Em **Settings** do serviço → **Networking** → **Generate Domain** para obter a URL.
-5. (Recomendado) Em **Settings** → **Volumes** → **Add Volume** com mount path `/data` e variável `RAILWAY_VOLUME_MOUNT_PATH` = `/data` para persistir o banco.
+5. (Recomendado) Em **Settings** → **Volumes** → **Add Volume** com mount path `/data` e variável `RAILWAY_VOLUME_MOUNT_PATH` = `/data` para persistir o banco (só quando **não** usar banco externo; veja seção abaixo).
+
+---
+
+## 4. Banco externo (PostgreSQL) e múltiplas réplicas
+
+Se você quiser **replicar o serviço** no Railway (várias instâncias) para melhorar a velocidade, o banco **não pode** ser o SQLite do volume (cada réplica teria seu próprio arquivo). Use um **PostgreSQL externo** (Neon, Supabase, Railway PostgreSQL, etc.):
+
+1. Crie um banco PostgreSQL (ex.: Neon.tech ou Supabase → Connection string).
+2. No Railway, no seu serviço → **Variables** → adicione:
+   - Nome: `DATABASE_URL`  
+   - Valor: a connection string (ex.: `postgresql://user:senha@host:5432/dbname?sslmode=require`).
+3. Faça **Redeploy**. O app usa automaticamente PostgreSQL em vez de SQLite; as tabelas são criadas na primeira execução.
+4. Em **Settings** do serviço → **Scaling** (ou **Replicas**), aumente o número de réplicas. Todas compartilham o mesmo `DATABASE_URL`, então os dados ficam centralizados e a aplicação fica mais rápida com mais instâncias.
+
+**Resumo:** Com `DATABASE_URL` definido, o app usa PostgreSQL e você pode escalar réplicas. Sem `DATABASE_URL`, continua usando SQLite no volume (uma instância apenas).
 
 ---
 
