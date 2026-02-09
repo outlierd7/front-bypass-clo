@@ -23,15 +23,22 @@ Se não definir `PANEL_DOMAIN`, o comportamento é o de antes: qualquer domínio
 
 ### Fazer tudo pelo painel (adicionar domínio no Railway ao cadastrar)
 
-1. No **Railway** → [Account / Tokens](https://railway.com/account/tokens) → crie um **Account token** (ou Workspace token do workspace do projeto).
-2. No projeto Railway → seu **serviço** → **Settings** → anote o **Service ID** (ou use **Cmd/Ctrl+K** no dashboard e “Copy Service ID”).
-3. No **Railway** → serviço → **Variables** → adicione:
-   - `RAILWAY_API_TOKEN` = o token do passo 1  
-   - `RAILWAY_SERVICE_ID` = o ID do serviço do passo 2  
-4. Faça **Redeploy** do serviço.
-5. No **painel do site**, entre como **admin** e em **Domínios** cadastre o domínio (ex: `iniiciopropo.sbs`). O app salva no painel e tenta registrar no Railway; se der certo, o domínio já fica disponível no Railway e você só precisa configurar o CNAME no seu provedor conforme as instruções que aparecem no painel.
+Você **não precisa dar acesso ao Railway** a ninguém: basta criar um **token** e colar as variáveis no seu próprio projeto. O site usa a **API pública** do Railway para adicionar o domínio quando um admin cadastra na seção Domínios.
 
-Se a sincronização com o Railway falhar (ex.: token inválido ou API alterada), o domínio continua salvo no painel e você pode adicioná-lo manualmente em Railway → Networking → + Custom Domain.
+1. No **Railway** → [Account / Tokens](https://railway.com/account/tokens) → crie um **Account token** (ou Workspace token do workspace do projeto).
+2. No dashboard do Railway, use **Cmd/Ctrl+K** e copie:
+   - **Copy Service ID**
+   - **Copy Project ID**
+   - **Copy Environment ID**
+3. No **Railway** → seu **serviço** → **Variables** → adicione:
+   - `RAILWAY_API_TOKEN` = o token do passo 1 (ou `RAILWAY_TOKEN`)
+   - `RAILWAY_SERVICE_ID` = Service ID do passo 2
+   - `RAILWAY_PROJECT_ID` = Project ID do passo 2
+   - `RAILWAY_ENVIRONMENT_ID` = Environment ID do passo 2
+4. Faça **Redeploy** do serviço.
+5. No **painel do site**, entre como **admin** e em **Domínios** cadastre o domínio (ex: `iniiciopropo.sbs`). O app salva no painel e **registra o domínio no Railway pela API**. O domínio aparece em Railway → Networking e você só precisa configurar o CNAME no seu provedor (o valor aparece na seção Domínios).
+
+Se a sincronização falhar (token inválido, API alterada ou variável faltando), o domínio continua salvo no painel; a mensagem após cadastrar avisa e você pode adicionar o domínio manualmente em Railway → Settings → Networking → + Custom Domain.
 
 ---
 

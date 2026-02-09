@@ -586,22 +586,25 @@
         <h2>Meus domínios</h2>
         <button class="btn btn-primary" onclick="document.getElementById('domainModal').classList.add('active')"><i class="ri-add-line"></i> Cadastrar domínio</button>
       </div>
-      <div class="card" style="border-left: 4px solid var(--warning);">
+      <div class="card" style="border-left: 4px solid var(--primary);">
         <div class="card-body">
-          <h4 style="margin-bottom: 10px;"><i class="ri-file-list-3-line"></i> Tudo pelo painel</h4>
-          <p style="color: var(--text-secondary); margin-bottom: 12px;">Cadastre o domínio aqui. O valor <strong>Destino CNAME</strong> (igual ao que o Railway usa) aparece abaixo — use-o no seu provedor de DNS.</p>
-          <p style="margin-bottom: 10px;"><strong>Valor para o DNS (copie abaixo):</strong></p>
-          <p style="margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <code id="cnameTargetPlaceholder" style="font-size: 13px; padding: 6px 10px; background: var(--bg-secondary); border-radius: 6px;">carregando...</code>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="copyCnameTarget()" title="Copiar destino CNAME"><i class="ri-file-copy-line"></i> Copiar</button>
-          </p>
-          <p style="margin-bottom: 12px;">Para o domínio <strong>realmente funcionar</strong> (abrir no navegador e nos links do cloaker), você precisa:</p>
-          <ol style="color: var(--text-secondary); line-height: 1.9; padding-left: 22px; margin-bottom: 15px;">
-            <li><strong>No Railway:</strong> abra o projeto → seu serviço → <strong>Networking</strong> → <strong>+ Custom Domain</strong> e adicione o domínio (ex: <code>iniiciopropo.sbs</code> ou <code>cloaker.seudominio.com</code>).</li>
-            <li><strong>No DNS</strong> (Cloudflare, Registro.br, etc.): crie um CNAME apontando esse domínio para <code>cloaker-pro-novo-production.up.railway.app</code> (ou a URL do seu app no Railway).</li>
-            <li><strong>Opcional:</strong> cadastre o mesmo domínio aqui nesta lista e, em <strong>Configurações</strong>, use a URL (ex: <code>https://iniiciopropo.sbs</code>) em “Meu domínio do Cloaker” para os links gerados usarem esse domínio.</li>
-          </ol>
-          <p style="color: var(--text-secondary); font-size: 13px;">Resumo: <strong>Railway</strong> decide quais domínios aceita (Custom Domain). O <strong>painel</strong> só guarda a lista e usa o domínio que você escolher em Configurações para montar os links.</p>
+          <h4 style="margin-bottom: 10px;"><i class="ri-dns-line"></i> Configuração DNS</h4>
+          <p style="color: var(--text-secondary); margin-bottom: 14px;">Adicione o registro abaixo no seu provedor de DNS (Cloudflare, Registro.br, HostGator, etc.). Se as variáveis Railway estiverem configuradas, ao cadastrar um domínio aqui ele é adicionado automaticamente no Railway.</p>
+          <p style="margin-bottom: 8px; font-size: 13px;"><strong>Registro DNS (adicione no seu provedor):</strong></p>
+          <div class="table-container" style="margin-bottom: 12px;">
+            <table>
+              <thead><tr><th>Tipo</th><th>Nome</th><th>Valor</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code>CNAME</code></td>
+                  <td><code>@</code></td>
+                  <td><code id="cnameTargetPlaceholder" style="font-size: 12px;">carregando...</code></td>
+                  <td><button type="button" class="btn btn-sm btn-secondary" onclick="copyCnameTarget()" title="Copiar"><i class="ri-file-copy-line"></i> Copiar</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 12px;">Nome <code>@</code> = raiz do domínio. Use <strong>Verificar propagação</strong> na tabela abaixo.</p>
         </div>
       </div>
       <div class="card">
@@ -609,8 +612,8 @@
           <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios. Para cada um: use o <strong>Destino CNAME</strong> no seu provedor de DNS (é o mesmo para todos).</p>
           <div class="table-container">
             <table>
-              <thead><tr><th>Domínio</th><th>Destino CNAME</th><th>Descrição</th><th>Ações</th></tr></thead>
-              <tbody id="domainsTable"><tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr></tbody>
+              <thead><tr><th>Domínio</th><th>Destino CNAME</th><th>Descrição</th><th>Propagação</th><th>Ações</th></tr></thead>
+              <tbody id="domainsTable"><tr><td colspan="5" class="loading"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
           <p id="domainsEmpty" style="display:none; color: var(--text-secondary); padding: 20px 0;">Nenhum domínio cadastrado. Clique em "Cadastrar domínio" para adicionar.</p>
@@ -1819,9 +1822,9 @@
         }
         if (empty) empty.style.display = 'none';
         const target = cnameTargetCache || 'seu-app.up.railway.app';
-        tbody.innerHTML = list.map(d => '<tr><td><code>' + (d.domain || '') + '</code></td><td><code style="font-size:11px">' + target + '</code></td><td>' + (d.description || '-') + '</td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>').join('');
+        tbody.innerHTML = list.map(d => '<tr><td><code>' + (d.domain || '') + '</code></td><td><code style="font-size:11px">' + target + '</code></td><td>' + (d.description || '-') + '</td><td><button type="button" class="btn btn-sm btn-secondary" onclick="checkDomainDns(\'' + (d.domain || '').replace(/'/g, "\\'") + '\', ' + d.id + ')" title="Verificar se o DNS já propagou"><i class="ri-search-line"></i> Verificar</button><span id="dnsResult-' + d.id + '" style="margin-left:6px;font-size:12px"></span></td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>').join('');
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4">Erro ao carregar</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar</td></tr>';
       }
     }
 
@@ -1842,6 +1845,22 @@
         loadDomains();
         if (data.nextStep) { if (msg) msg.textContent = ''; alert('Domínio cadastrado. ' + data.nextStep); }
       } catch (e) { if (msg) msg.textContent = 'Erro de conexão'; }
+    }
+
+    async function checkDomainDns(domain, rowId) {
+      const span = document.getElementById('dnsResult-' + rowId);
+      if (span) span.textContent = '...';
+      try {
+        const target = cnameTargetCache ? encodeURIComponent(cnameTargetCache) : '';
+        const res = await fetch('/api/domains/check-dns?domain=' + encodeURIComponent(domain) + (target ? '&target=' + target : ''), { credentials: 'include' });
+        const data = await res.json().catch(() => ({}));
+        if (span) {
+          if (data.propagated) span.innerHTML = '<span style="color:var(--success)"><i class="ri-checkbox-circle-fill"></i> Propagado</span>';
+          else span.innerHTML = '<span style="color:var(--text-secondary)" title="' + (data.message || '').replace(/"/g, '&quot;') + '"><i class="ri-time-line"></i> ' + (data.message ? (data.message.length > 40 ? data.message.slice(0, 40) + '…' : data.message) : 'Aguardando') + '</span>';
+        }
+      } catch (e) {
+        if (span) span.innerHTML = '<span style="color:var(--danger)">Erro</span>';
+      }
     }
 
     async function deleteDomain(id) {

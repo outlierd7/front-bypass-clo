@@ -57,11 +57,13 @@ Depois do deploy, o app passa a usar o Supabase. Na primeira requisição, as ta
 Para que, ao cadastrar um domínio no painel (como admin), o app tente adicionar também no Railway:
 
 1. Railway → **Account** → **Tokens** → crie um token (Account ou do workspace).
-2. No projeto → serviço → **Settings** → copie o **Service ID** (ou Cmd/Ctrl+K → “Copy Service ID”).
+2. No dashboard, **Cmd/Ctrl+K** e copie: **Service ID**, **Project ID**, **Environment ID**.
 3. Em **Variables** do serviço, adicione:
    - `RAILWAY_API_TOKEN` = token do passo 1  
-   - `RAILWAY_SERVICE_ID` = ID do passo 2  
-4. Redeploy.
+   - `RAILWAY_SERVICE_ID` = Service ID  
+   - `RAILWAY_PROJECT_ID` = Project ID  
+   - `RAILWAY_ENVIRONMENT_ID` = Environment ID  
+4. Redeploy. Ao cadastrar um domínio como admin no painel, o app adiciona o domínio no Railway pela API.
 
 ---
 

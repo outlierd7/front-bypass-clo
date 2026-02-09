@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const dns = require('dns').promises;
+const https = require('https');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const db = require('./db');
@@ -425,6 +426,75 @@ function getCnameTarget(req) {
   return '';
 }
 
+// Adiciona domínio customizado no Railway via API (evita passo manual no painel).
+// Requer: RAILWAY_API_TOKEN, RAILWAY_SERVICE_ID, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID.
+// Retorna { ok: true } ou { ok: false, error: string }.
+function addCustomDomainToRailway(domain) {
+  const token = process.env.RAILWAY_API_TOKEN || process.env.RAILWAY_TOKEN;
+  const serviceId = process.env.RAILWAY_SERVICE_ID;
+  const projectId = process.env.RAILWAY_PROJECT_ID;
+  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
+  if (!token || !serviceId || !projectId || !environmentId) {
+    return Promise.resolve({ ok: false, error: 'Variáveis Railway não configuradas (RAILWAY_API_TOKEN, RAILWAY_SERVICE_ID, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID).' });
+  }
+  const body = JSON.stringify({
+    query: `mutation CustomDomainCreate($input: CustomDomainCreateInput!) {
+      customDomainCreate(input: $input) {
+        domain
+        status { dnsRecords { recordType hostlabel requiredValue zone } }
+      }
+    }`,
+    variables: {
+      input: {
+        domain: domain.trim().toLowerCase(),
+        serviceId,
+        projectId,
+        environmentId
+      }
+    }
+  });
+  return new Promise((resolve) => {
+    const req = https.request(
+      {
+        hostname: 'backboard.railway.app',
+        path: '/graphql/v2',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Length': Buffer.byteLength(body, 'utf8')
+        }
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.errors && json.errors.length) {
+              const msg = json.errors[0].message || JSON.stringify(json.errors[0]);
+              return resolve({ ok: false, error: msg });
+            }
+            if (json.data && json.data.customDomainCreate) {
+              return resolve({ ok: true, data: json.data.customDomainCreate });
+            }
+            resolve({ ok: false, error: data || 'Resposta inesperada da API Railway.' });
+          } catch (e) {
+            resolve({ ok: false, error: e.message || 'Erro ao processar resposta da API.' });
+          }
+        });
+      }
+    );
+    req.on('error', (e) => resolve({ ok: false, error: e.message || 'Erro de rede ao chamar Railway.' }));
+    req.setTimeout(15000, () => {
+      req.destroy();
+      resolve({ ok: false, error: 'Timeout ao chamar API Railway.' });
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
 // API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
 app.get('/api/domains', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
@@ -444,10 +514,60 @@ app.post('/api/domains', async (req, res) => {
     await db.run('INSERT INTO allowed_domains (user_id, domain, description) VALUES (?, ?, ?)', [userId, d, (description || '').trim() || null]);
     const row = await db.get('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? AND domain = ? ORDER BY id DESC LIMIT 1', [userId, d]);
     const payload = row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString() };
-    payload.nextStep = 'Na seção Domínios, copie o Destino CNAME e configure no seu provedor de DNS. Depois adicione o domínio em Railway → Settings → Networking → + Custom Domain.';
+    const user = await db.get('SELECT role FROM users WHERE id = ?', [userId]);
+    const isAdmin = user && user.role === 'admin';
+    if (isAdmin) {
+      const railway = await addCustomDomainToRailway(d);
+      if (railway.ok) {
+        payload.nextStep = 'Domínio cadastrado no painel e no Railway. Use a tabela "Configuração DNS" abaixo no seu provedor de DNS. Você pode verificar se já propagou com o botão "Verificar propagação".';
+        payload.railwaySynced = true;
+      } else {
+        const isMissingVars = (railway.error || '').indexOf('Variáveis Railway não configuradas') !== -1;
+        if (isMissingVars) {
+          payload.nextStep = 'Domínio cadastrado no painel. Para que os próximos sejam adicionados automaticamente no Railway (sem ir ao painel do Railway), configure no Railway → Variables: RAILWAY_API_TOKEN, RAILWAY_SERVICE_ID, RAILWAY_PROJECT_ID e RAILWAY_ENVIRONMENT_ID. Use a tabela DNS abaixo no seu provedor e, se precisar, adicione este domínio manualmente em Railway → Networking → + Custom Domain.';
+        } else {
+          payload.nextStep = 'Domínio cadastrado no painel. Use a tabela "Configuração DNS" abaixo no seu provedor. Se o domínio não aparecer no Railway, adicione em Railway → Networking → + Custom Domain. Depois use "Verificar propagação" aqui no painel.';
+        }
+        payload.railwaySynced = false;
+        payload.railwayError = railway.error;
+      }
+    } else {
+      payload.nextStep = 'Domínio cadastrado. Use a tabela "Configuração DNS" na seção Domínios no seu provedor de DNS. Um admin pode configurar as variáveis Railway para que novos domínios sejam adicionados automaticamente no Railway.';
+    }
     res.json(payload);
   } catch (e) {
     res.status(400).json({ error: 'Domínio já cadastrado para você' });
+  }
+});
+
+// Verificar se o DNS do domínio já propagou (CNAME aponta para o target esperado).
+app.get('/api/domains/check-dns', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const domain = (req.query.domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+  if (!domain) return res.status(400).json({ error: 'Informe o parâmetro domain' });
+  const expectedTarget = (req.query.target || '').trim() || getCnameTarget(req);
+  if (!expectedTarget) return res.status(400).json({ error: 'Destino CNAME não definido' });
+  try {
+    const cname = await dns.resolve(domain, 'CNAME').catch(() => []);
+    const resolved = Array.isArray(cname) && cname.length ? cname[0].replace(/\.$/, '') : null;
+    const propagated = !!resolved && resolved.toLowerCase() === expectedTarget.toLowerCase();
+    return res.json({
+      domain,
+      expectedTarget,
+      resolved: resolved || null,
+      propagated,
+      message: propagated
+        ? 'DNS propagado. O domínio está apontando corretamente para o servidor.'
+        : (resolved ? `O domínio aponta para ${resolved}. O esperado é ${expectedTarget}.` : 'Ainda não encontramos registro CNAME para este domínio. Pode levar alguns minutos até 48h.')
+    });
+  } catch (e) {
+    return res.json({
+      domain,
+      expectedTarget,
+      resolved: null,
+      propagated: false,
+      message: e.code === 'ENODATA' ? 'Nenhum registro CNAME encontrado para este domínio. Configure no seu provedor de DNS.' : (e.message || 'Erro ao consultar DNS.')
+    });
   }
 });
 
