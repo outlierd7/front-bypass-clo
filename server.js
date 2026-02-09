@@ -415,15 +415,12 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// CNAME target: domínio principal do app (para instruções DNS). Env ou host da requisição.
+// CNAME target: só variáveis de ambiente. NUNCA usar o host da requisição — senão ao acessar por
+// domínio custom (ex.: iniiciopropo.sbs) apareceria esse domínio como "valor CNAME", que está errado.
+// O valor CNAME correto é o do Railway (ex.: qxn717p4.up.railway.app), vindo da API ou de APP_CNAME_TARGET/RAILWAY_STATIC_URL.
 function getCnameTarget(req) {
   const fromEnv = process.env.APP_CNAME_TARGET || process.env.RAILWAY_STATIC_URL || '';
-  if (fromEnv.trim()) return fromEnv.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
-  try {
-    const host = req.get('host') || req.get('x-forwarded-host');
-    if (host) return host.split(':')[0];
-  } catch (e) {}
-  return '';
+  return fromEnv.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0] || '';
 }
 
 // Adiciona domínio customizado no Railway via API (evita passo manual no painel).
@@ -522,8 +519,9 @@ app.post('/api/domains', async (req, res) => {
         let cnameValue = null;
         const dnsRecords = railway.data && railway.data.status && railway.data.status.dnsRecords;
         if (Array.isArray(dnsRecords) && dnsRecords.length) {
-          const cnameRecord = dnsRecords.find(r => (r.recordType || '').toUpperCase() === 'CNAME') || dnsRecords[0];
-          cnameValue = (cnameRecord && cnameRecord.requiredValue) ? cnameRecord.requiredValue.trim() : null;
+          const cnameRecord = dnsRecords.find(r => (r.recordType || r.record_type || '').toUpperCase() === 'CNAME') || dnsRecords[0];
+          const val = cnameRecord && (cnameRecord.requiredValue || cnameRecord.required_value);
+          cnameValue = (typeof val === 'string' && val.trim()) ? val.trim() : null;
         }
         if (cnameValue && payload.id) {
           await db.run('UPDATE allowed_domains SET railway_cname_target = ? WHERE id = ?', [cnameValue, payload.id]);

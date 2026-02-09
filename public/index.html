@@ -1800,7 +1800,7 @@
         const data = await res.json();
         const list = data.domains || (Array.isArray(data) ? data : []);
         cnameTargetCache = data.cnameTarget || '';
-        if (ph) ph.textContent = cnameTargetCache || 'seu-app.up.railway.app';
+        if (ph) ph.textContent = cnameTargetCache || '(cada domínio mostra o valor na tabela abaixo)';
         if (list.length === 0) {
           tbody.innerHTML = '';
           if (empty) empty.style.display = 'block';
@@ -1810,9 +1810,11 @@
         const target = cnameTargetCache || 'seu-app.up.railway.app';
         tbody.innerHTML = list.map(d => {
         var cnameVal = d.railway_cname_target || target;
+        if (!cnameVal) cnameVal = '(recadastre o domínio para obter o valor do Railway)';
         var cnameEsc = (cnameVal || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        var cnameJs = (cnameVal || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return '<tr><td><code>' + (d.domain || '') + '</code></td><td><code>CNAME</code></td><td><code>@</code></td><td><code id="cnameVal-' + d.id + '" style="font-size:11px">' + cnameEsc + '</code> <button type="button" class="btn btn-sm btn-secondary" onclick="copyDomainCname(' + d.id + ')" title="Copiar Valor CNAME"><i class="ri-file-copy-line"></i></button></td><td><button type="button" class="btn btn-sm btn-secondary" onclick="checkDomainDns(\'' + (d.domain || '').replace(/'/g, "\\'") + '\', ' + d.id + ', \'' + cnameJs + '\')" title="Verificar se o DNS já propagou"><i class="ri-search-line"></i> Verificar</button><span id="dnsResult-' + d.id + '" style="margin-left:6px;font-size:12px"></span></td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>';
+        var cnameJs = (d.railway_cname_target || target || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        var copyBtn = (d.railway_cname_target || target) ? '<button type="button" class="btn btn-sm btn-secondary" onclick="copyDomainCname(' + d.id + ')" title="Copiar Valor CNAME"><i class="ri-file-copy-line"></i></button>' : '';
+        return '<tr><td><code>' + (d.domain || '') + '</code></td><td><code>CNAME</code></td><td><code>@</code></td><td><code id="cnameVal-' + d.id + '" style="font-size:11px">' + cnameEsc + '</code> ' + copyBtn + '</td><td><button type="button" class="btn btn-sm btn-secondary" onclick="checkDomainDns(\'' + (d.domain || '').replace(/'/g, "\\'") + '\', ' + d.id + ', \'' + cnameJs + '\')" title="Verificar se o DNS já propagou"><i class="ri-search-line"></i> Verificar</button><span id="dnsResult-' + d.id + '" style="margin-left:6px;font-size:12px"></span></td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>';
       }).join('');
       } catch (e) {
         tbody.innerHTML = '<tr><td colspan="6">Erro ao carregar</td></tr>';
