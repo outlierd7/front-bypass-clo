@@ -145,6 +145,7 @@ async function initPg() {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)
     `).catch(() => {});
     try { await client.query('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) {}
+    try { await client.query('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) {}
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_visitors_site_created ON visitors(site_id, created_at)
     `).catch(() => {});
@@ -222,6 +223,7 @@ async function initSqlite() {
   try { db.run('ALTER TABLE sites ADD COLUMN required_ref_token TEXT'); } catch (e) {}
   try { db.run("ALTER TABLE sites ADD COLUMN block_behavior TEXT DEFAULT 'redirect'"); } catch (e) {}
   try { db.run('ALTER TABLE sites ADD COLUMN default_link_params TEXT'); } catch (e) {}
+  try { db.run('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS visitors (

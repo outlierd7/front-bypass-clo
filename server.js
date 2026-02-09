@@ -387,6 +387,29 @@ app.post('/api/users/:id/activate', async (req, res) => {
   res.json(u || { success: true });
 });
 
+// API: Alterar senha do usuário atual
+app.put('/api/me/password', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Senha atual e nova senha (mín. 6 caracteres) obrigatórias.' });
+  const user = await db.get('SELECT password_hash FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) return res.status(401).json({ error: 'Senha atual incorreta.' });
+  const hash = bcrypt.hashSync(newPassword, 10);
+  await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.session.userId]);
+  res.json({ success: true });
+});
+
+// API: Alterar username do usuário atual
+app.put('/api/me/username', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const { username } = req.body || {};
+  if (!username || username.trim().length < 2) return res.status(400).json({ error: 'Usuário com pelo menos 2 caracteres obrigatório.' });
+  const exists = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username.trim(), req.session.userId]);
+  if (exists) return res.status(400).json({ error: 'Este usuário já está em uso.' });
+  await db.run('UPDATE users SET username = ? WHERE id = ?', [username.trim(), req.session.userId]);
+  res.json({ success: true });
+});
+
 // API: Alterar senha do usuário (admin)
 app.put('/api/users/:id/password', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
@@ -906,19 +929,31 @@ app.put('/api/sites/:siteId', async (req, res) => {
         name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?, block_behavior = ?, default_link_params = ?,
         block_desktop = ?, block_facebook_library = ?, block_bots = ?,
         block_vpn = ?, block_devtools = ?,
-        allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?
+        allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?, selected_domain = ?
       WHERE site_id = ?
     `, [
       data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url, blockBehavior, defaultParams,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
       data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0, refToken,
+      (data.selected_domain || '').trim() || null,
       req.params.siteId
     ]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// API: Atualizar domínio selecionado do site
+app.put('/api/sites/:siteId/selected-domain', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const site = await db.get('SELECT user_id FROM sites WHERE site_id = ?', [req.params.siteId]);
+  if (!site) return res.status(404).json({ error: 'Site não encontrado' });
+  if (site.user_id != null && Number(site.user_id) !== Number(req.session.userId)) return res.status(403).json({ error: 'Acesso negado' });
+  const { selected_domain } = req.body || {};
+  await db.run('UPDATE sites SET selected_domain = ? WHERE site_id = ?', [(selected_domain || '').trim() || null, req.params.siteId]);
+  res.json({ success: true });
 });
 
 // API: Deletar site (apenas se pertencer ao usuário)

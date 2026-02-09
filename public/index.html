@@ -428,6 +428,12 @@
             <label class="form-label">Nome (opcional – para identificar no painel)</label>
             <input type="text" class="form-input" id="quickSiteName" placeholder="Ex: Campanha Janeiro">
           </div>
+          <div class="form-group">
+            <label class="form-label">Usar domínio:</label>
+            <select class="form-select" id="quickDomainSelect" style="max-width: 300px;">
+              <option value="">Padrão</option>
+            </select>
+          </div>
           <button class="btn btn-primary" onclick="generateLinkFromUrl()"><i class="ri-link"></i> Gerar link para Ads</button>
           <div id="generatedLinkBox" style="display: none; margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: 10px; border: 1px solid var(--success);">
             <div class="form-label" style="margin-bottom: 8px;">✅ Link gerado – use esse link nos seus anúncios:</div>
@@ -491,7 +497,7 @@
     <!-- Configurações (domínio do cloaker – por usuário) -->
     <section id="settings" class="section">
       <div class="header">
-        <h2>Configurações</h2>
+        <h2>Configurações da Conta</h2>
       </div>
       <div class="card">
         <div class="card-header"><h3 class="card-title"><i class="ri-global-line"></i> Meu domínio do Cloaker</h3></div>
@@ -1005,14 +1011,14 @@
             <div class="form-label" style="margin-bottom: 6px;">🔗 Link para usar nos Ads (Meta Ads, etc.)</div>
             <div style="margin-bottom: 8px;">
               <label class="form-label" style="margin-bottom: 4px; font-size: 12px;">Usar domínio:</label>
-              <select class="form-select" id="domainSelect-${s.site_id}" style="max-width: 280px;" onchange="document.getElementById('linkDisplay-${s.site_id}').textContent = buildFullLink(sites.find(x=>x.site_id==='${s.site_id}'), getLinkBaseUrl(this.value))">
-                <option value="">Padrão</option>
-                ${(domainsList || []).map(d => '<option value="' + (d.domain || '') + '">' + (d.domain || '') + '</option>').join('')}
+              <select class="form-select" id="domainSelect-${s.site_id}" style="max-width: 280px;" onchange="saveSelectedDomain('${s.site_id}', this.value); document.getElementById('linkDisplay-${s.site_id}').textContent = buildFullLink(sites.find(x=>x.site_id==='${s.site_id}'), getLinkBaseUrl(this.value))">
+                <option value="" ${!s.selected_domain ? 'selected' : ''}>Padrão</option>
+                ${(domainsList || []).map(d => '<option value="' + (d.domain || '') + '" ' + (s.selected_domain === d.domain ? 'selected' : '') + '>' + (d.domain || '') + '</option>').join('')}
               </select>
             </div>
             <div class="code-block" style="font-size: 12px; padding: 10px;">
               <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copySiteLink('${s.site_id}')"><i class="ri-file-copy-line"></i> Copiar link completo</button>
-              <span id="linkDisplay-${s.site_id}">${s.link_code ? buildFullLink(s, getBaseUrl()) : 'Salve a URL do seu site e edite o site para gerar o link.'}</span>
+              <span id="linkDisplay-${s.site_id}">${s.link_code ? buildFullLink(s, s.selected_domain ? getLinkBaseUrl(s.selected_domain) : getBaseUrl()) : 'Salve a URL do seu site e edite o site para gerar o link.'}</span>
             </div>
             ${(s.required_ref_token && s.required_ref_token.trim()) ? `
             <div class="form-label" style="margin: 12px 0 6px;">🔑 Parâmetro de Rastreamento (Meta Ads)</div>
@@ -1439,6 +1445,8 @@
       const url = (document.getElementById('quickTargetUrl').value || '').trim();
       if (!url) { alert('Cole a URL da sua landing page no campo acima.'); return; }
       const name = (document.getElementById('quickSiteName').value || '').trim() || ('Landing ' + new Date().toLocaleDateString('pt-BR'));
+      const domainSelect = document.getElementById('quickDomainSelect');
+      const selectedDomain = domainSelect ? domainSelect.value : '';
       try {
         const res = await fetch('/api/sites', {
           method: 'POST',
@@ -1448,12 +1456,14 @@
             name,
             target_url: url,
             redirect_url: 'https://www.google.com/',
-            allowed_countries: 'BR'
+            allowed_countries: 'BR',
+            selected_domain: selectedDomain || null
           })
         });
         if (!res.ok) throw new Error('Erro ao criar');
         const site = await res.json();
-        const link = getBaseUrl() + '/go/' + site.link_code;
+        const baseUrl = selectedDomain ? getLinkBaseUrl(selectedDomain) : getBaseUrl();
+        const link = buildFullLink(site, baseUrl);
         await loadSites();
         document.getElementById('generatedLinkText').textContent = link;
         document.getElementById('generatedLinkBox').style.display = 'block';
@@ -1526,25 +1536,79 @@
 
     async function loadSettings() {
       try {
-        const res = await fetch('/api/settings', { credentials: 'include' });
-        const data = await res.json();
-        baseUrlOrOrigin = (data.cloaker_base_url || '').trim() || window.location.origin;
-        const el = document.getElementById('cloakerBaseUrl');
-        if (el) el.value = data.cloaker_base_url || '';
+        const res = await fetch('/api/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const el = document.getElementById('newUsername');
+          if (el) el.value = data.username || '';
+        }
       } catch (e) {}
     }
 
-    async function saveSettings() {
-      const url = (document.getElementById('cloakerBaseUrl').value || '').trim();
-      const msg = document.getElementById('settingsMsg');
+    async function updateUsername() {
+      const username = (document.getElementById('newUsername').value || '').trim();
+      const msg = document.getElementById('usernameMsg');
+      if (!username || username.length < 2) {
+        msg.textContent = 'Usuário deve ter pelo menos 2 caracteres.';
+        msg.style.color = 'var(--danger)';
+        return;
+      }
       try {
-        const res = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ cloaker_base_url: url }) });
-        if (!res.ok) throw new Error();
-        baseUrlOrOrigin = url || window.location.origin;
-        msg.textContent = 'Salvo.';
+        const res = await fetch('/api/me/username', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username })
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Erro ao atualizar');
+        }
+        msg.textContent = 'Usuário atualizado com sucesso!';
         msg.style.color = 'var(--success)';
         setTimeout(() => { msg.textContent = ''; }, 3000);
-      } catch (e) { msg.textContent = 'Erro ao salvar.'; msg.style.color = 'var(--danger)'; }
+      } catch (e) {
+        msg.textContent = e.message || 'Erro ao atualizar usuário.';
+        msg.style.color = 'var(--danger)';
+      }
+    }
+
+    async function updatePassword() {
+      const current = (document.getElementById('currentPassword').value || '').trim();
+      const newPass = (document.getElementById('newPassword').value || '').trim();
+      const confirm = (document.getElementById('confirmPassword').value || '').trim();
+      const msg = document.getElementById('passwordMsg');
+      if (!current || !newPass || newPass.length < 6) {
+        msg.textContent = 'Preencha a senha atual e a nova senha (mín. 6 caracteres).';
+        msg.style.color = 'var(--danger)';
+        return;
+      }
+      if (newPass !== confirm) {
+        msg.textContent = 'As senhas não coincidem.';
+        msg.style.color = 'var(--danger)';
+        return;
+      }
+      try {
+        const res = await fetch('/api/me/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ currentPassword: current, newPassword: newPass })
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Erro ao atualizar');
+        }
+        msg.textContent = 'Senha atualizada com sucesso!';
+        msg.style.color = 'var(--success)';
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+        setTimeout(() => { msg.textContent = ''; }, 3000);
+      } catch (e) {
+        msg.textContent = e.message || 'Erro ao atualizar senha.';
+        msg.style.color = 'var(--danger)';
+      }
     }
 
     async function checkPropagation() {
@@ -1773,6 +1837,21 @@
       return params.length ? path + '?' + params.join('&') : path;
     }
 
+    async function saveSelectedDomain(siteId, domain) {
+      try {
+        await fetch(`/api/sites/${siteId}/selected-domain`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ selected_domain: domain || '' })
+        });
+        const site = sites.find(s => s.site_id === siteId);
+        if (site) site.selected_domain = domain || null;
+      } catch (e) {
+        console.error('Erro ao salvar domínio selecionado:', e);
+      }
+    }
+
     function copySiteLink(siteId) {
       const site = sites.find(s => s.site_id === siteId);
       if (!site || !site.link_code) { alert('Edite o site e salve a URL do seu site para gerar o link.'); return; }
@@ -1800,8 +1879,18 @@
         if (!res) return;
         const data = await res.json();
         const list = data.domains || (Array.isArray(data) ? data : []);
+        domainsList = list;
         cnameTargetCache = data.cnameTarget || '';
         if (ph) ph.textContent = cnameTargetCache || '(cada domínio mostra o valor na tabela abaixo)';
+        
+        // Atualizar dropdowns de domínio
+        const quickDomainSelect = document.getElementById('quickDomainSelect');
+        if (quickDomainSelect) {
+          const currentVal = quickDomainSelect.value;
+          quickDomainSelect.innerHTML = '<option value="">Padrão</option>' + list.map(d => `<option value="${d.domain || ''}">${d.domain || ''}</option>`).join('');
+          quickDomainSelect.value = currentVal || '';
+        }
+        
         if (list.length === 0) {
           tbody.innerHTML = '';
           if (empty) empty.style.display = 'block';
