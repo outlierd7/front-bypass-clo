@@ -598,8 +598,8 @@
           <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios. Para cada um, use o <strong>Valor CNAME</strong> da coluna abaixo no seu provedor de DNS (cada domínio pode ter um valor diferente).</p>
           <div class="table-container">
             <table>
-              <thead><tr><th>Domínio</th><th>Tipo</th><th>Nome</th><th>Valor CNAME</th><th>Propagação</th><th>Ações</th></tr></thead>
-              <tbody id="domainsTable"><tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr></tbody>
+              <thead><tr><th>Descrição</th><th>Domínio</th><th>Tipo</th><th>Nome</th><th>Valor CNAME</th><th>Propagação</th><th>Ações</th></tr></thead>
+              <tbody id="domainsTable"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
           <p id="domainsEmpty" style="display:none; color: var(--text-secondary); padding: 20px 0;">Nenhum domínio cadastrado. Clique em "Cadastrar domínio" para adicionar.</p>
@@ -614,12 +614,13 @@
       <div class="modal-header"><h3>Cadastrar domínio</h3><button class="modal-close" onclick="document.getElementById('domainModal').classList.remove('active')">&times;</button></div>
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Domínio (ex: cloaker.seudominio.com)</label>
-          <input type="text" class="form-input" id="newDomainName" placeholder="cloaker.seudominio.com">
+          <label class="form-label">Descrição (opcional)</label>
+          <input type="text" class="form-input" id="newDomainDesc" placeholder="Ex: Campanha principal, Site X">
+          <span style="font-size: 12px; color: var(--text-secondary);">Use para identificar este domínio na lista.</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Descrição (opcional)</label>
-          <input type="text" class="form-input" id="newDomainDesc" placeholder="Ex: Campanha principal">
+          <label class="form-label">Domínio (ex: cloaker.seudominio.com)</label>
+          <input type="text" class="form-input" id="newDomainName" placeholder="cloaker.seudominio.com">
         </div>
         <button class="btn btn-primary" onclick="addDomain()"><i class="ri-save-line"></i> Cadastrar</button>
         <span id="domainMsg" style="margin-left: 10px; font-size: 13px;"></span>
@@ -1814,10 +1815,11 @@
         var cnameEsc = (cnameVal || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var cnameJs = (d.railway_cname_target || target || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         var copyBtn = (d.railway_cname_target || target) ? '<button type="button" class="btn btn-sm btn-secondary" onclick="copyDomainCname(' + d.id + ')" title="Copiar Valor CNAME"><i class="ri-file-copy-line"></i></button>' : '';
-        return '<tr><td><code>' + (d.domain || '') + '</code></td><td><code>CNAME</code></td><td><code>@</code></td><td><code id="cnameVal-' + d.id + '" style="font-size:11px">' + cnameEsc + '</code> ' + copyBtn + '</td><td><button type="button" class="btn btn-sm btn-secondary" onclick="checkDomainDns(\'' + (d.domain || '').replace(/'/g, "\\'") + '\', ' + d.id + ', \'' + cnameJs + '\')" title="Verificar se o DNS já propagou"><i class="ri-search-line"></i> Verificar</button><span id="dnsResult-' + d.id + '" style="margin-left:6px;font-size:12px"></span></td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>';
+        var descEsc = (d.description || '-').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return '<tr><td>' + descEsc + '</td><td><code>' + (d.domain || '') + '</code></td><td><code>CNAME</code></td><td><code>@</code></td><td><code id="cnameVal-' + d.id + '" style="font-size:11px">' + cnameEsc + '</code> ' + copyBtn + '</td><td><button type="button" class="btn btn-sm btn-secondary" onclick="checkDomainDns(\'' + (d.domain || '').replace(/'/g, "\\'") + '\', ' + d.id + ', \'' + cnameJs + '\')" title="Verificar se o DNS já propagou"><i class="ri-search-line"></i> Verificar</button><span id="dnsResult-' + d.id + '" style="margin-left:6px;font-size:12px"></span></td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>';
       }).join('');
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="6">Erro ao carregar</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">Erro ao carregar</td></tr>';
       }
     }
 

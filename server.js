@@ -74,13 +74,15 @@ function isPanelRoute(path, method) {
   if (method === 'GET' && path.match(/^\/api\/config\/[^/]+$/)) return false;
   return true;
 }
+// Em domínios que não são o do painel: não redirecionar para o painel; mostrar página em manutenção.
+// Assim quem acessar só o domínio (ex.: https://iniictranfi.sbs/) não vê nada útil — só /go/ e /t/ funcionam.
+const MAINTENANCE_HTML = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Em manutenção</title><style>body{font-family:system-ui,sans-serif;background:#1a1a1a;color:#eee;margin:0;padding:2rem;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;}h1{font-size:1.5rem;}</style></head><body><div><h1>Em manutenção</h1><p>Volte mais tarde.</p></div></body></html>';
 app.use((req, res, next) => {
   if (!PANEL_DOMAIN) return next();
   const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
-  if (!isPanelRoute(req.path, req.method)) return next(); // links cloaker: qualquer domínio
+  if (!isPanelRoute(req.path, req.method)) return next(); // /go/, /t/, api/config: qualquer domínio
   if (host === PANEL_DOMAIN) return next();
-  const proto = req.protocol || 'https';
-  return res.redirect(301, proto + '://' + PANEL_DOMAIN + (req.originalUrl || req.url || '/'));
+  res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').send(MAINTENANCE_HTML);
 });
 
 // Middleware
@@ -492,6 +494,57 @@ function addCustomDomainToRailway(domain) {
   });
 }
 
+// Remove domínio customizado do Railway via API (ao deletar no painel).
+// Lista os domínios do serviço, encontra o id do custom domain pelo nome, e chama customDomainDelete.
+function removeCustomDomainFromRailway(domain) {
+  const token = process.env.RAILWAY_API_TOKEN || process.env.RAILWAY_TOKEN;
+  const serviceId = process.env.RAILWAY_SERVICE_ID;
+  const projectId = process.env.RAILWAY_PROJECT_ID;
+  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
+  if (!token || !serviceId || !projectId || !environmentId) return Promise.resolve({ ok: false });
+
+  function graphql(body) {
+    return new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: 'backboard.railway.app',
+        path: '/graphql/v2',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      }, (res) => {
+        let data = '';
+        res.on('data', c => { data += c; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(12000, () => { req.destroy(); reject(new Error('timeout')); });
+      req.write(body);
+      req.end();
+    });
+  }
+
+  const listQuery = JSON.stringify({
+    query: 'query Domains($environmentId: String!, $projectId: String!, $serviceId: String!) { domains(environmentId: $environmentId, projectId: $projectId, serviceId: $serviceId) { customDomains { id domain } } }',
+    variables: { environmentId, projectId, serviceId }
+  });
+
+  return graphql(listQuery).then(json => {
+    const custom = (json.data && json.data.domains && json.data.domains.customDomains) || [];
+    const d = domain.trim().toLowerCase();
+    const found = custom.find(c => (c.domain || '').toLowerCase() === d);
+    if (!found || !found.id) return { ok: true };
+    const deleteBody = JSON.stringify({
+      query: 'mutation CustomDomainDelete($id: String!, $projectId: String!) { customDomainDelete(id: $id, projectId: $projectId) { id } }',
+      variables: { id: found.id, projectId }
+    });
+    return graphql(deleteBody).then(del => {
+      if (del.errors && del.errors.length) return { ok: false, error: del.errors[0].message };
+      return { ok: true };
+    });
+  }).catch(e => ({ ok: false, error: e.message }));
+}
+
 // API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
 app.get('/api/domains', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
@@ -585,6 +638,10 @@ app.delete('/api/domains/:id', async (req, res) => {
   const user = await db.get('SELECT role FROM users WHERE id = ?', [userId]);
   const canDelete = user && (user.role === 'admin' || (await db.get('SELECT 1 FROM allowed_domains WHERE id = ? AND user_id = ?', [req.params.id, userId])));
   if (!canDelete) return res.status(403).json({ error: 'Acesso negado' });
+  const row = await db.get('SELECT domain FROM allowed_domains WHERE id = ?', [req.params.id]);
+  if (user.role === 'admin' && row && row.domain) {
+    await removeCustomDomainFromRailway(row.domain);
+  }
   await db.run('DELETE FROM allowed_domains WHERE id = ?', [req.params.id]);
   res.json({ success: true });
 });
