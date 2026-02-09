@@ -444,7 +444,7 @@ app.post('/api/domains', async (req, res) => {
     await db.run('INSERT INTO allowed_domains (user_id, domain, description) VALUES (?, ?, ?)', [userId, d, (description || '').trim() || null]);
     const row = await db.get('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? AND domain = ? ORDER BY id DESC LIMIT 1', [userId, d]);
     const payload = row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString() };
-    payload.nextStep = 'Adicione em Railway → Settings → Networking → + Custom Domain e configure o CNAME no seu provedor conforme a lista.';
+    payload.nextStep = 'Na seção Domínios, copie o Destino CNAME e configure no seu provedor de DNS. Depois adicione o domínio em Railway → Settings → Networking → + Custom Domain.';
     res.json(payload);
   } catch (e) {
     res.status(400).json({ error: 'Domínio já cadastrado para você' });

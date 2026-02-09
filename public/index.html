@@ -588,8 +588,13 @@
       </div>
       <div class="card" style="border-left: 4px solid var(--warning);">
         <div class="card-body">
-          <h4 style="margin-bottom: 10px; color: var(--warning);"><i class="ri-information-line"></i> Como um domínio passa a funcionar</h4>
-          <p style="color: var(--text-secondary); margin-bottom: 12px;">O cadastro <strong>nesta página</strong> é apenas uma lista interna (para organização e para usuários verem em Configurações). <strong>Não adiciona o domínio ao servidor.</strong></p>
+          <h4 style="margin-bottom: 10px;"><i class="ri-file-list-3-line"></i> Tudo pelo painel</h4>
+          <p style="color: var(--text-secondary); margin-bottom: 12px;">Cadastre o domínio aqui. O valor <strong>Destino CNAME</strong> (igual ao que o Railway usa) aparece abaixo — use-o no seu provedor de DNS.</p>
+          <p style="margin-bottom: 10px;"><strong>Valor para o DNS (copie abaixo):</strong></p>
+          <p style="margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <code id="cnameTargetPlaceholder" style="font-size: 13px; padding: 6px 10px; background: var(--bg-secondary); border-radius: 6px;">carregando...</code>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="copyCnameTarget()" title="Copiar destino CNAME"><i class="ri-file-copy-line"></i> Copiar</button>
+          </p>
           <p style="margin-bottom: 12px;">Para o domínio <strong>realmente funcionar</strong> (abrir no navegador e nos links do cloaker), você precisa:</p>
           <ol style="color: var(--text-secondary); line-height: 1.9; padding-left: 22px; margin-bottom: 15px;">
             <li><strong>No Railway:</strong> abra o projeto → seu serviço → <strong>Networking</strong> → <strong>+ Custom Domain</strong> e adicione o domínio (ex: <code>iniiciopropo.sbs</code> ou <code>cloaker.seudominio.com</code>).</li>
@@ -601,7 +606,7 @@
       </div>
       <div class="card">
         <div class="card-body">
-          <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios (para referência e para usuários em Configurações). Para funcionar na internet, o domínio precisa estar adicionado no Railway (Networking → Custom Domain) e no DNS.</p>
+          <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios. Para cada um: use o <strong>Destino CNAME</strong> no seu provedor de DNS (é o mesmo para todos).</p>
           <div class="table-container">
             <table>
               <thead><tr><th>Domínio</th><th>Destino CNAME</th><th>Descrição</th><th>Ações</th></tr></thead>
@@ -1785,6 +1790,15 @@
       const domainHost = sel ? sel.value : '';
       const full = buildFullLink(site, getLinkBaseUrl(domainHost));
       if (full) copyToClipboard(full);
+    }
+    function copyCnameTarget() {
+      const t = cnameTargetCache || document.getElementById('cnameTargetPlaceholder')?.textContent || '';
+      if (!t || t === 'carregando...') return;
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(() => alert('Destino CNAME copiado.')).catch(() => fallbackCopy(t)); }
+      else fallbackCopy(t);
+    }
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); alert('Destino CNAME copiado.'); } catch (e) {} document.body.removeChild(ta);
     }
     async function loadDomains() {
       const tbody = document.getElementById('domainsTable');
