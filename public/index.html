@@ -1479,23 +1479,22 @@
             <div class="form-label" style="margin-bottom: 6px;">🔗 Link para usar nos Ads (Meta Ads, etc.)</div>
             <div style="margin-bottom: 8px;">
               <label class="form-label" style="margin-bottom: 4px; font-size: 12px;">Usar domínio:</label>
-              <select class="form-select" id="domainSelect-${s.site_id}" style="max-width: 280px;" onchange="saveSelectedDomain('${s.site_id}', this.value); document.getElementById('linkDisplay-${s.site_id}').textContent = buildFullLink(sites.find(x=>x.site_id==='${s.site_id}'), getLinkBaseUrl(this.value))">
+              <select class="form-select" id="domainSelect-${s.site_id}" style="max-width: 280px;" onchange="updateSiteLinkDisplays('${s.site_id}')">
                 <option value="" ${!s.selected_domain ? 'selected' : ''}>Padrão</option>
                 ${(domainsList || []).map(d => '<option value="' + (d.domain || '') + '" ' + (s.selected_domain === d.domain ? 'selected' : '') + '>' + (d.domain || '') + '</option>').join('')}
               </select>
             </div>
+            <div class="form-label" style="margin: 10px 0 4px; font-size: 12px;">Domínio gerado</div>
             <div class="code-block" style="font-size: 12px; padding: 10px;">
-              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copySiteLink('${s.site_id}')"><i class="ri-file-copy-line"></i> Copiar link completo</button>
-              <span id="linkDisplay-${s.site_id}">${s.link_code ? buildFullLink(s, s.selected_domain ? getLinkBaseUrl(s.selected_domain) : getBaseUrl()) : 'Salve a URL do seu site e edite o site para gerar o link.'}</span>
+              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copySiteLinkBase('${s.site_id}')"><i class="ri-file-copy-line"></i> Copiar</button>
+              <span id="linkBase-${s.site_id}">${s.link_code ? buildLinkBase(s, s.selected_domain ? getLinkBaseUrl(s.selected_domain) : getBaseUrl()) : '—'}</span>
             </div>
-            ${(s.required_ref_token && s.required_ref_token.trim()) ? `
-            <div class="form-label" style="margin: 12px 0 6px;">🔑 Parâmetro de Rastreamento (Meta Ads)</div>
-            <div class="code-block" style="font-size: 12px; padding: 10px; background: rgba(88, 166, 255, 0.1); border: 1px solid var(--border-hover);">
-              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copyToClipboard('ref=${s.required_ref_token}');"><i class="ri-file-copy-line"></i></button>
-              <span style="color: var(--accent); font-weight: 600;">ref=${s.required_ref_token}</span>
+            <div class="form-label" style="margin: 10px 0 4px; font-size: 12px;">Parâmetros</div>
+            <div class="code-block" style="font-size: 12px; padding: 10px;">
+              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copySiteLinkParams('${s.site_id}')"><i class="ri-file-copy-line"></i> Copiar</button>
+              <span id="linkParams-${s.site_id}">${s.link_code ? (buildLinkParams(s) || '—') : '—'}</span>
             </div>
-            ` : ''}
-            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Escolha o domínio acima e use <strong>Copiar link completo</strong> para colar nos anúncios (já com ref e parâmetros padrão, se configurados).</p>
+            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Copie o <strong>domínio gerado</strong> e os <strong>parâmetros</strong> separadamente, ou use o link completo nos anúncios.</p>
           </div>
         </div>
       `).join('');
@@ -2296,13 +2295,26 @@
 
     function buildFullLink(site, baseUrl) {
       if (!site || !site.link_code) return '';
+      const path = buildLinkBase(site, baseUrl);
+      const qs = buildLinkParams(site);
+      return qs ? path + qs : path;
+    }
+
+    /** Apenas o domínio gerado: base + /go/code (sem query string) */
+    function buildLinkBase(site, baseUrl) {
+      if (!site || !site.link_code) return '';
       const base = (baseUrl || getBaseUrl()).replace(/\/$/, '');
-      const path = base + '/go/' + site.link_code;
+      return base + '/go/' + site.link_code;
+    }
+
+    /** Apenas os parâmetros: ?ref=...&utm_... (string vazia se não houver) */
+    function buildLinkParams(site) {
+      if (!site) return '';
       const params = [];
       if (site.required_ref_token && site.required_ref_token.trim()) params.push('ref=' + encodeURIComponent(site.required_ref_token));
       const def = (site.default_link_params || '').trim();
       if (def) params.push(def.startsWith('&') ? def.slice(1) : def);
-      return params.length ? path + '?' + params.join('&') : path;
+      return params.length ? '?' + params.join('&') : '';
     }
 
     async function saveSelectedDomain(siteId, domain) {
@@ -2318,6 +2330,32 @@
       } catch (e) {
         console.error('Erro ao salvar domínio selecionado:', e);
       }
+    }
+
+    function updateSiteLinkDisplays(siteId) {
+      saveSelectedDomain(siteId, document.getElementById('domainSelect-' + siteId)?.value || '');
+      const site = sites.find(s => s.site_id === siteId);
+      const baseUrl = getLinkBaseUrl(document.getElementById('domainSelect-' + siteId)?.value || '');
+      const baseEl = document.getElementById('linkBase-' + siteId);
+      const paramsEl = document.getElementById('linkParams-' + siteId);
+      if (baseEl) baseEl.textContent = site && site.link_code ? buildLinkBase(site, baseUrl) : '—';
+      if (paramsEl) paramsEl.textContent = site && site.link_code ? (buildLinkParams(site) || '—') : '—';
+    }
+
+    function copySiteLinkBase(siteId) {
+      const site = sites.find(s => s.site_id === siteId);
+      if (!site || !site.link_code) { alert('Edite o site e salve a URL do seu site para gerar o link.'); return; }
+      const baseUrl = getLinkBaseUrl(document.getElementById('domainSelect-' + siteId)?.value || '');
+      const base = buildLinkBase(site, baseUrl);
+      if (base) copyToClipboard(base);
+    }
+
+    function copySiteLinkParams(siteId) {
+      const site = sites.find(s => s.site_id === siteId);
+      if (!site) return;
+      const params = buildLinkParams(site);
+      if (params) copyToClipboard(params);
+      else copyToClipboard('');
     }
 
     function copySiteLink(siteId) {
