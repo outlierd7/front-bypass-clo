@@ -252,7 +252,7 @@
       <li class="nav-item"><a class="nav-link" data-section="script"><i class="ri-link"></i> Link para Ads</a></li>
       <li class="nav-item"><a class="nav-link" data-section="settings"><i class="ri-settings-3-line"></i> Configurações</a></li>
       <li class="nav-item" id="navUsers" style="display:none"><a class="nav-link" data-section="users"><i class="ri-team-line"></i> Usuários</a></li>
-      <li class="nav-item" id="navDomains" style="display:none"><a class="nav-link" data-section="domains"><i class="ri-global-line"></i> Domínios</a></li>
+      <li class="nav-item"><a class="nav-link" data-section="domains"><i class="ri-global-line"></i> Domínios</a></li>
     </ul>
     <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border);">
       <button type="button" class="nav-link" style="width:100%; background:none; border:none; color: var(--text-secondary); cursor: pointer;" onclick="logout()"><i class="ri-logout-box-line"></i> Sair</button>
@@ -463,12 +463,18 @@
       <div class="card">
         <div class="card-header"><h3 class="card-title"><i class="ri-link"></i> Seu link para usar nos Ads</h3></div>
         <div class="card-body">
-          <p style="margin-bottom: 15px; color: var(--text-secondary);">Selecione um site para ver e copiar o link:</p>
-          <select class="form-select" id="scriptSiteSelector" style="max-width: 300px; margin-bottom: 20px;" onchange="updateScriptCode()">
+          <p style="margin-bottom: 15px; color: var(--text-secondary);">Selecione um site e o domínio para ver e copiar o link completo (com ref e parâmetros padrão):</p>
+          <select class="form-select" id="scriptSiteSelector" style="max-width: 300px; margin-bottom: 10px;" onchange="updateScriptCode()">
             <option value="">Selecione um site...</option>
           </select>
+          <div style="margin-bottom: 15px;">
+            <label class="form-label" style="font-size: 12px;">Domínio:</label>
+            <select class="form-select" id="scriptDomainSelect" style="max-width: 300px;" onchange="updateScriptCode()">
+              <option value="">Padrão</option>
+            </select>
+          </div>
           <div class="code-block" id="scriptCodeBlock" style="display: none;">
-            <button class="copy-btn" onclick="copyScript()"><i class="ri-file-copy-line"></i> Copiar link</button>
+            <button class="copy-btn" onclick="copyScript()"><i class="ri-file-copy-line"></i> Copiar link completo</button>
             <pre id="scriptCode"></pre>
             <div id="scriptRefParamBox" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
               <div class="form-label" style="margin-bottom: 8px;">No Meta Ads, em <strong>Rastreamento → Parâmetros de URL</strong>, adicione (para só permitir cliques do anúncio):</div>
@@ -529,7 +535,16 @@
             <li><strong>No painel, em Configurações</strong>, preencha o campo acima com a URL completa, por exemplo: <code>https://cloaker.seudominio.com</code> (sem barra no final). Clique em <strong>Salvar</strong>.</li>
             <li>Pronto. Ao gerar links em <strong>Meus Sites</strong> ou <strong>Link para Ads</strong>, os links sairão como <code>https://cloaker.seudominio.com/go/XXXXX</code>.</li>
           </ol>
-          <p style="color: var(--text-secondary); font-size: 13px;"><strong>Exemplo:</strong> Se seu domínio é <code>minhaempresa.com</code> e você criou o CNAME <code>cloaker</code> apontando para <code>cloaktest-production.up.railway.app</code>, coloque aqui: <code>https://cloaker.minhaempresa.com</code>.</p>
+          <p style="color: var(--text-secondary); font-size: 13px;">Cadastre em <strong>Domínios</strong>, use o destino CNAME no DNS e escolha o domínio ao gerar o link em Meus Sites.</p>
+        </div>
+      </div>
+      <div class="card" id="backupCard" style="display: none;">
+        <div class="card-header"><h3 class="card-title"><i class="ri-database-2-line"></i> Backup do banco (admin)</h3></div>
+        <div class="card-body">
+          <p style="color: var(--text-secondary); margin-bottom: 15px;">Para não perder dados: baixe o backup ou configure <code>BACKUP_WEBHOOK_URL</code> no Railway (envio automático a cada 6h).</p>
+          <button type="button" class="btn btn-secondary" onclick="window.open('/api/backup', '_blank')"><i class="ri-download-line"></i> Download backup (JSON)</button>
+          <button type="button" class="btn btn-secondary" style="margin-left: 10px;" onclick="sendBackup()"><i class="ri-send-plane-line"></i> Enviar backup agora</button>
+          <span id="backupMsg" style="margin-left: 10px; font-size: 13px;"></span>
         </div>
       </div>
     </section>
@@ -568,7 +583,7 @@
     <!-- Domínios (admin) -->
     <section id="domains" class="section">
       <div class="header">
-        <h2>Domínios cadastrados</h2>
+        <h2>Meus domínios</h2>
         <button class="btn btn-primary" onclick="document.getElementById('domainModal').classList.add('active')"><i class="ri-add-line"></i> Cadastrar domínio</button>
       </div>
       <div class="card" style="border-left: 4px solid var(--warning);">
@@ -589,7 +604,7 @@
           <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios (para referência e para usuários em Configurações). Para funcionar na internet, o domínio precisa estar adicionado no Railway (Networking → Custom Domain) e no DNS.</p>
           <div class="table-container">
             <table>
-              <thead><tr><th>Domínio</th><th>Descrição</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
+              <thead><tr><th>Domínio</th><th>Destino CNAME</th><th>Descrição</th><th>Ações</th></tr></thead>
               <tbody id="domainsTable"><tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr></tbody>
             </table>
           </div>
@@ -745,6 +760,11 @@
             <button type="button" class="btn btn-sm btn-secondary" onclick="copyRefToken()"><i class="ri-file-copy-line"></i> Copiar</button>
             <button type="button" class="btn btn-sm btn-secondary" id="siteRegenerateRefBtn" onclick="setRegenerateRefOnSave(true)"><i class="ri-refresh-line"></i> Gerar novo token</button>
           </div>
+        </div>
+        <div class="form-group" style="margin-top: 15px;">
+          <label class="form-label">Parâmetros padrão no link (opcional)</label>
+          <input type="text" class="form-input" id="siteDefaultLinkParams" placeholder="Ex: utm_source=facebook&utm_medium=cpc&utm_campaign=campanha1">
+          <p class="form-hint">Serão incluídos no link ao copiar. Ex: <code>utm_source=fb&utm_medium=cpc</code>. O <code>ref=</code> (se exigir) é adicionado automaticamente.</p>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 25px;">
           <button class="btn btn-primary" onclick="saveSite()"><i class="ri-save-line"></i> Salvar</button>
@@ -938,9 +958,13 @@
         if (!res) return;
         const data = await res.json();
         sites = Array.isArray(data) ? data : [];
+        try {
+          const dr = await apiGet('/api/domains');
+          if (dr) { const ddata = await dr.json(); domainsList = ddata.domains || []; }
+        } catch (e) { domainsList = []; }
         updateSiteSelectors();
         renderSitesList();
-      } catch (e) { sites = []; updateSiteSelectors(); renderSitesList(); }
+      } catch (e) { sites = []; domainsList = []; updateSiteSelectors(); renderSitesList(); }
     }
 
     function updateSiteSelectors() {
@@ -984,18 +1008,25 @@
           </div>
           <div style="margin-top: 15px;">
             <div class="form-label" style="margin-bottom: 6px;">🔗 Link para usar nos Ads (Meta Ads, etc.)</div>
+            <div style="margin-bottom: 8px;">
+              <label class="form-label" style="margin-bottom: 4px; font-size: 12px;">Usar domínio:</label>
+              <select class="form-select" id="domainSelect-${s.site_id}" style="max-width: 280px;" onchange="document.getElementById('linkDisplay-${s.site_id}').textContent = buildFullLink(sites.find(x=>x.site_id==='${s.site_id}'), getLinkBaseUrl(this.value))">
+                <option value="">Padrão</option>
+                ${(domainsList || []).map(d => '<option value="' + (d.domain || '') + '">' + (d.domain || '') + '</option>').join('')}
+              </select>
+            </div>
             <div class="code-block" style="font-size: 12px; padding: 10px;">
-              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="if ('${s.link_code || ''}') copyToClipboard(getBaseUrl() + '/go/${s.link_code || ''}'); else alert('Edite o site e salve a URL do seu site para gerar o link.');"><i class="ri-file-copy-line"></i></button>
-              ${s.link_code ? (getBaseUrl() + '/go/' + s.link_code) : 'Salve a URL do seu site e edite o site para gerar o link.'}
+              <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copySiteLink('${s.site_id}')"><i class="ri-file-copy-line"></i> Copiar link completo</button>
+              <span id="linkDisplay-${s.site_id}">${s.link_code ? buildFullLink(s, getBaseUrl()) : 'Salve a URL do seu site e edite o site para gerar o link.'}</span>
             </div>
             ${(s.required_ref_token && s.required_ref_token.trim()) ? `
-            <div class="form-label" style="margin: 12px 0 6px;">🔑 Parâmetro de Rastreamento (Meta Ads → Rastreamento → Parâmetros de URL)</div>
+            <div class="form-label" style="margin: 12px 0 6px;">🔑 Parâmetro de Rastreamento (Meta Ads)</div>
             <div class="code-block" style="font-size: 12px; padding: 10px; background: linear-gradient(135deg, rgba(103,126,234,0.15), rgba(233,69,96,0.15)); border: 1px solid var(--accent);">
               <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copyToClipboard('ref=${s.required_ref_token}');"><i class="ri-file-copy-line"></i></button>
               <span style="color: var(--accent); font-weight: 600;">ref=${s.required_ref_token}</span>
             </div>
             ` : ''}
-            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Use esse link como <strong>URL de destino</strong> nos seus anúncios. ${(s.required_ref_token && s.required_ref_token.trim()) ? 'No Meta Ads, adicione o parâmetro acima em <strong>Rastreamento → Parâmetros de URL</strong>.' : ''}</p>
+            <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">Escolha o domínio acima e use <strong>Copiar link completo</strong> para colar nos anúncios (já com ref e parâmetros padrão, se configurados).</p>
           </div>
         </div>
       `).join('');
@@ -1022,6 +1053,7 @@
       updateCountryVisibility();
       document.getElementById('siteRequireRef').checked = false;
       document.getElementById('siteRefTokenBox').style.display = 'none';
+      document.getElementById('siteDefaultLinkParams').value = '';
       regenerateRefOnSave = false;
       document.getElementById('siteModal').classList.add('active');
     }
@@ -1056,6 +1088,7 @@
         refBox.style.display = 'block';
         document.getElementById('siteRefTokenValue').textContent = '(nenhum – marque "Exigir" e salve para gerar)';
       }
+      document.getElementById('siteDefaultLinkParams').value = (site.default_link_params || '').trim();
       regenerateRefOnSave = false;
       document.getElementById('siteModal').classList.add('active');
     }
@@ -1078,6 +1111,7 @@
         target_url: document.getElementById('siteTargetUrl').value,
         redirect_url: document.getElementById('siteRedirectUrl').value,
         block_behavior: document.getElementById('siteBlockBehaviorEmbed').checked ? 'embed' : 'redirect',
+        default_link_params: (document.getElementById('siteDefaultLinkParams').value || '').trim(),
         block_desktop: document.getElementById('siteBlockDesktop').checked,
         block_facebook_library: document.getElementById('siteBlockFacebook').checked,
         block_bots: document.getElementById('siteBlockBots').checked,
@@ -1395,7 +1429,16 @@
     function closeVisitorModal() { document.getElementById('visitorModal').classList.remove('active'); }
 
     // Script section
-    function loadScriptSection() { updateSiteSelectors(); }
+    async function loadScriptSection() {
+      if (!domainsList || domainsList.length === 0) {
+        try {
+          const r = await apiGet('/api/domains');
+          if (r) { const d = await r.json(); domainsList = d.domains || []; }
+        } catch (e) {}
+      }
+      updateSiteSelectors();
+      updateScriptCode();
+    }
 
     async function generateLinkFromUrl() {
       const url = (document.getElementById('quickTargetUrl').value || '').trim();
@@ -1428,15 +1471,28 @@
     
     function updateScriptCode() {
       const siteId = document.getElementById('scriptSiteSelector').value;
+      const domainSel = document.getElementById('scriptDomainSelect');
       const block = document.getElementById('scriptCodeBlock');
       const code = document.getElementById('scriptCode');
       const refBox = document.getElementById('scriptRefParamBox');
       const refVal = document.getElementById('scriptRefParamValue');
+      if (domainSel && domainsList && domainSel.options.length <= 1) {
+        domainsList.forEach(d => {
+          if (d.domain) {
+            const opt = document.createElement('option');
+            opt.value = d.domain;
+            opt.textContent = d.domain;
+            domainSel.appendChild(opt);
+          }
+        });
+      }
       if (!siteId) { block.style.display = 'none'; return; }
       block.style.display = 'block';
       const site = sites.find(s => s.site_id === siteId);
+      const domainHost = domainSel ? domainSel.value : '';
+      const base = getLinkBaseUrl(domainHost);
       if (site && site.link_code) {
-        code.textContent = getBaseUrl() + '/go/' + site.link_code;
+        code.textContent = buildFullLink(site, base);
         if (site.required_ref_token && site.required_ref_token.trim()) {
           refBox.style.display = 'block';
           refVal.textContent = 'ref=' + site.required_ref_token;
@@ -1455,8 +1511,8 @@
     }
 
     function copyScript() {
-      const code = document.getElementById('scriptCode').textContent;
-      copyToClipboard(code);
+      const code = document.getElementById('scriptCode');
+      if (code && code.textContent) copyToClipboard(code.textContent.trim());
     }
 
     function copyToClipboard(text) {
@@ -1703,25 +1759,53 @@
       } catch (e) {}
     }
 
+    let cnameTargetCache = '';
+    let domainsList = [];
+
+    function getLinkBaseUrl(domainHost) {
+      if (!domainHost) return getBaseUrl();
+      return (domainHost.startsWith('http') ? domainHost : 'https://' + domainHost).replace(/\/$/, '');
+    }
+
+    function buildFullLink(site, baseUrl) {
+      if (!site || !site.link_code) return '';
+      const base = (baseUrl || getBaseUrl()).replace(/\/$/, '');
+      const path = base + '/go/' + site.link_code;
+      const params = [];
+      if (site.required_ref_token && site.required_ref_token.trim()) params.push('ref=' + encodeURIComponent(site.required_ref_token));
+      const def = (site.default_link_params || '').trim();
+      if (def) params.push(def.startsWith('&') ? def.slice(1) : def);
+      return params.length ? path + '?' + params.join('&') : path;
+    }
+
+    function copySiteLink(siteId) {
+      const site = sites.find(s => s.site_id === siteId);
+      if (!site || !site.link_code) { alert('Edite o site e salve a URL do seu site para gerar o link.'); return; }
+      const sel = document.getElementById('domainSelect-' + siteId);
+      const domainHost = sel ? sel.value : '';
+      const full = buildFullLink(site, getLinkBaseUrl(domainHost));
+      if (full) copyToClipboard(full);
+    }
     async function loadDomains() {
       const tbody = document.getElementById('domainsTable');
       const empty = document.getElementById('domainsEmpty');
+      const ph = document.getElementById('cnameTargetPlaceholder');
       if (!tbody) return;
       try {
         const res = await apiGet('/api/domains');
         if (!res) return;
-        const list = await res.json();
-        if (!Array.isArray(list)) { tbody.innerHTML = '<tr><td colspan="4">Erro ao carregar</td></tr>'; return; }
+        const data = await res.json();
+        const list = data.domains || (Array.isArray(data) ? data : []);
+        cnameTargetCache = data.cnameTarget || '';
+        if (ph) ph.textContent = cnameTargetCache || 'seu-app.up.railway.app';
         if (list.length === 0) {
           tbody.innerHTML = '';
           if (empty) empty.style.display = 'block';
           return;
         }
         if (empty) empty.style.display = 'none';
-        tbody.innerHTML = list.map(d => {
-          const created = d.created_at ? formatDateBR(d.created_at) : '-';
-          return '<tr><td><code>' + (d.domain || '') + '</code></td><td>' + (d.description || '-') + '</td><td>' + created + '</td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>';
-        }).join('');
+        const target = cnameTargetCache || 'seu-app.up.railway.app';
+        tbody.innerHTML = list.map(d => '<tr><td><code>' + (d.domain || '') + '</code></td><td><code style="font-size:11px">' + target + '</code></td><td>' + (d.description || '-') + '</td><td><button type="button" class="btn btn-sm btn-danger" onclick="deleteDomain(' + d.id + ')"><i class="ri-delete-bin-line"></i></button></td></tr>').join('');
       } catch (e) {
         tbody.innerHTML = '<tr><td colspan="4">Erro ao carregar</td></tr>';
       }
@@ -1754,6 +1838,18 @@
       } catch (e) {}
     }
 
+    async function sendBackup() {
+      const msg = document.getElementById('backupMsg');
+      if (msg) msg.textContent = 'Enviando...';
+      try {
+        const res = await fetch('/api/backup/send', { method: 'POST', credentials: 'include' });
+        const data = await res.json().catch(() => ({}));
+        if (msg) msg.textContent = res.ok ? (data.message || 'Enviado.') : (data.error || 'Erro.');
+      } catch (e) {
+        if (msg) msg.textContent = 'Erro de conexão';
+      }
+    }
+
     async function createUser() {
       const username = (document.getElementById('newUserUsername').value || '').trim();
       const password = document.getElementById('newUserPassword').value;
@@ -1783,8 +1879,8 @@
           if (currentUser && currentUser.role === 'admin') {
             var nu = document.getElementById('navUsers');
             if (nu) nu.style.display = 'block';
-            var nd = document.getElementById('navDomains');
-            if (nd) nd.style.display = 'block';
+            var bc = document.getElementById('backupCard');
+            if (bc) bc.style.display = 'block';
           }
         }
         const setRes = await apiGet('/api/settings');

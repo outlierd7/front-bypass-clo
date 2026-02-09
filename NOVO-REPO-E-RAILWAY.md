@@ -68,3 +68,11 @@ Se você criou a conta por **“Solicitar acesso”** em vez de **“Criar admin
    ```
 4. Se der certo, aparecerá uma mensagem de sucesso. A partir daí faça **login** com o usuário e senha que você criou.
 5. (Opcional) Depois de entrar, remova ou altere a variável `SETUP_RECOVERY_TOKEN` no Railway para evitar uso indevido.
+
+---
+
+## Backup do banco (não perder dados)
+
+- **No painel:** Admin → Configurações → card **Backup do banco**. Use **Download backup (JSON)** para baixar uma cópia dos dados.
+- **Envio automático:** No Railway, em **Variables**, adicione `BACKUP_WEBHOOK_URL` = URL de um endpoint que aceite POST com JSON (ex: um webhook do Pipedream, Zapier ou um servidor seu). O sistema envia um backup a cada 6 horas.
+- **Destino CNAME:** Para os links usarem seu domínio, em **Variables** você pode definir `APP_CNAME_TARGET` = o host do seu app (ex: `seu-app.up.railway.app`). Assim a seção Domínios mostra para onde apontar o CNAME no DNS.

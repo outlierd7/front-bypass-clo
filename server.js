@@ -166,6 +166,7 @@ async function initDb() {
   try { db.run('ALTER TABLE sites ADD COLUMN user_id INTEGER'); } catch (e) {}
   try { db.run('ALTER TABLE sites ADD COLUMN required_ref_token TEXT'); } catch (e) {}
   try { db.run("ALTER TABLE sites ADD COLUMN block_behavior TEXT DEFAULT 'redirect'"); } catch (e) {}
+  try { db.run('ALTER TABLE sites ADD COLUMN default_link_params TEXT'); } catch (e) {}
   // Atribuir sites existentes ao primeiro admin (para migração)
   const firstAdmin = get('SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', ['admin']);
   if (firstAdmin) {
@@ -244,7 +245,14 @@ async function initDb() {
   try { db.run('ALTER TABLE users ADD COLUMN cloaker_base_url TEXT'); } catch (e) {}
   db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
   try { db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('cloaker_base_url', '')"); } catch (e) {}
-  db.run(`CREATE TABLE IF NOT EXISTS allowed_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT UNIQUE NOT NULL, description TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+  db.run(`CREATE TABLE IF NOT EXISTS allowed_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, domain TEXT NOT NULL, description TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+  try { db.run('ALTER TABLE allowed_domains ADD COLUMN user_id INTEGER'); } catch (e) {}
+  try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)'); } catch (e) {}
+  const firstAdminId = get('SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', ['admin']);
+  if (firstAdminId) run('UPDATE allowed_domains SET user_id = ? WHERE user_id IS NULL', [firstAdminId.id]);
+
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_visitors_site_created ON visitors(site_id, created_at)'); } catch (e) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_visitors_created ON visitors(created_at)'); } catch (e) {}
 
   saveDb();
   console.log('✅ Banco de dados inicializado');
@@ -559,38 +567,92 @@ app.post('/api/users', (req, res) => {
   }
 });
 
-// API: Domínios cadastrados (admin) – listar, criar, excluir
+// CNAME target: domínio principal do app (para instruções DNS). Env ou host da requisição.
+function getCnameTarget(req) {
+  const fromEnv = process.env.APP_CNAME_TARGET || process.env.RAILWAY_STATIC_URL || '';
+  if (fromEnv.trim()) return fromEnv.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
+  try {
+    const host = req.get('host') || req.get('x-forwarded-host');
+    if (host) return host.split(':')[0];
+  } catch (e) {}
+  return '';
+}
+
+// API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
 app.get('/api/domains', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
-  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
-  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
-  const list = all('SELECT id, domain, description, created_at FROM allowed_domains ORDER BY domain ASC');
-  res.json(list);
+  const userId = req.session.userId;
+  const list = all('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? OR user_id IS NULL ORDER BY domain ASC', [userId]);
+  const cnameTarget = getCnameTarget(req);
+  res.json({ domains: list, cnameTarget });
 });
 
 app.post('/api/domains', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
-  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
-  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  const userId = req.session.userId;
   const { domain, description } = req.body || {};
   const d = (domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
   if (!d) return res.status(400).json({ error: 'Informe o domínio' });
   try {
-    run('INSERT INTO allowed_domains (domain, description) VALUES (?, ?)', [d, (description || '').trim() || null]);
-    const row = get('SELECT id, domain, description, created_at FROM allowed_domains WHERE id = last_insert_rowid()');
-    res.json(row);
+    run('INSERT INTO allowed_domains (user_id, domain, description) VALUES (?, ?, ?)', [userId, d, (description || '').trim() || null]);
+    const row = get('SELECT id, domain, description, created_at FROM allowed_domains WHERE user_id = ? AND domain = ? ORDER BY id DESC LIMIT 1', [userId, d]);
+    res.json(row || { id: 0, domain: d, description: (description || '').trim() || null, created_at: new Date().toISOString() });
   } catch (e) {
-    res.status(400).json({ error: 'Domínio já cadastrado' });
+    res.status(400).json({ error: 'Domínio já cadastrado para você' });
   }
 });
 
 app.delete('/api/domains/:id', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
-  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
-  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  const userId = req.session.userId;
+  const user = get('SELECT role FROM users WHERE id = ?', [userId]);
+  const canDelete = user && (user.role === 'admin' || get('SELECT 1 FROM allowed_domains WHERE id = ? AND user_id = ?', [req.params.id, userId]));
+  if (!canDelete) return res.status(403).json({ error: 'Acesso negado' });
   run('DELETE FROM allowed_domains WHERE id = ?', [req.params.id]);
   res.json({ success: true });
 });
+
+// API: Backup do banco (admin) – exporta dados para não perder
+function exportBackup() {
+  return {
+    exportedAt: new Date().toISOString(),
+    users: all('SELECT * FROM users'),
+    sites: all('SELECT * FROM sites'),
+    visitors: all('SELECT id, site_id, ip, country, city, region, device_type, browser, os, was_blocked, block_reason, is_bot, created_at FROM visitors'),
+    allowed_domains: all('SELECT * FROM allowed_domains'),
+    settings: all('SELECT * FROM settings')
+  };
+}
+
+app.get('/api/backup', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  res.setHeader('Content-Disposition', 'attachment; filename=cloaker-backup-' + new Date().toISOString().slice(0, 10) + '.json');
+  res.json(exportBackup());
+});
+
+app.post('/api/backup/send', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const user = get('SELECT role FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Acesso negado' });
+  const url = process.env.BACKUP_WEBHOOK_URL || '';
+  if (!url.trim()) return res.status(400).json({ error: 'Configure BACKUP_WEBHOOK_URL no Railway' });
+  const payload = exportBackup();
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(() => {}).catch(() => {});
+  res.json({ success: true, message: 'Backup enviado para o webhook' });
+});
+
+// Envio automático de backup a cada 6 horas se BACKUP_WEBHOOK_URL estiver definido
+const BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+if (process.env.BACKUP_WEBHOOK_URL) {
+  setInterval(() => {
+    try {
+      const payload = exportBackup();
+      fetch(process.env.BACKUP_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
+    } catch (e) {}
+  }, BACKUP_INTERVAL_MS);
+}
 
 // API: Buscar configurações do site (para o script)
 app.get('/api/config/:siteId', (req, res) => {
@@ -764,8 +826,9 @@ app.post('/api/sites', (req, res) => {
   const target = (target_url || '').trim() || null;
   const userId = req.session.userId;
   try {
-    run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, datetime('now'))`,
-      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', (req.body.block_behavior === 'embed' ? 'embed' : 'redirect'), countries, refToken]);
+    const defaultParams = (req.body.default_link_params || '').trim() || null;
+    run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, default_link_params, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, datetime('now'))`,
+      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', (req.body.block_behavior === 'embed' ? 'embed' : 'redirect'), defaultParams, countries, refToken]);
     const site = get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
   } catch (error) {
@@ -787,15 +850,16 @@ app.put('/api/sites/:siteId', (req, res) => {
     if (data.regenerate_ref_token) refToken = generateRefToken();
     else if (data.required_ref_token !== undefined) refToken = (data.required_ref_token || '').trim() || null;
     const blockBehavior = data.block_behavior === 'embed' ? 'embed' : 'redirect';
+    const defaultParams = (data.default_link_params || '').trim() || null;
     run(`
       UPDATE sites SET
-        name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?, block_behavior = ?,
+        name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?, block_behavior = ?, default_link_params = ?,
         block_desktop = ?, block_facebook_library = ?, block_bots = ?,
         block_vpn = ?, block_devtools = ?,
         allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?
       WHERE site_id = ?
     `, [
-      data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url, blockBehavior,
+      data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url, blockBehavior, defaultParams,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
       data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0, refToken,
@@ -1055,7 +1119,7 @@ app.get('/go/:code', async (req, res) => {
       run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, datetime('now'))`,
         [site.site_id, (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim() || 'unknown', req.headers['user-agent'] || '', (req.headers['referer'] || req.headers['referrer'] || ''), fullUrl, null, null, null, null, null, null, null, blockReasonRef]);
       const blockUrl = site.redirect_url || 'https://www.google.com/';
-      if (site.block_behavior === 'embed') return sendEmbeddedPage(res, blockUrl);
+      if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
       return res.redirect(302, blockUrl);
     }
   }
@@ -1125,7 +1189,7 @@ app.get('/go/:code', async (req, res) => {
 
   if (wasBlocked) {
     const blockUrl = site.redirect_url || 'https://www.google.com/';
-    if (site.block_behavior === 'embed') return sendEmbeddedPage(res, blockUrl);
+    if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
     return res.redirect(302, blockUrl);
   }
 
