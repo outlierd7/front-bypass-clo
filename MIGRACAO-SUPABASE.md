@@ -20,11 +20,8 @@ Sim, **Supabase funciona** como banco externo. O app usa PostgreSQL quando a var
    `postgresql://postgres.[PROJECT-REF]:[SENHA]@aws-0-[REGIAO].pooler.supabase.com:6543/postgres`
 4. Troque `[YOUR-PASSWORD]` pela senha do banco que você definiu ao criar o projeto.
 5. Para o app Node (long-lived), use o **Session mode** (porta **5432** se aparecer a opção, ou a porta do pooler **6543**). No Supabase, em **Connection string** há opção "Session" vs "Transaction" — use **Session** para o app.
-6. Se a URL não tiver `?sslmode=require`, adicione no final:  
-   `postgresql://...postgres?sslmode=require`
-
-Exemplo final:  
-`postgresql://postgres.xxxx:SUA_SENHA@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require`
+6. Para o app Cloaker, use a URL **sem** `?sslmode=require` no final (o app já configura SSL). Exemplo final:  
+   `postgresql://postgres.xxxx:SUA_SENHA@aws-0-us-west-2.pooler.supabase.com:6543/postgres`
 
 ---
 

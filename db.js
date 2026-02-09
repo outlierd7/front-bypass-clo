@@ -23,7 +23,7 @@ async function initPg() {
   const { Pool } = require('pg');
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=') ? undefined : { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false }
   });
 
   const client = await pool.connect();
