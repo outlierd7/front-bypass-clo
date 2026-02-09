@@ -1,0 +1,65 @@
+---
+description: Sempre fazer commit e push para GitHub após modificações
+alwaysApply: true
+---
+
+# Git Auto Commit e Push
+
+## Regra Principal
+
+**SEMPRE** que você modificar arquivos no projeto, deve:
+
+1. **Verificar o status**: `git status` para ver quais arquivos foram modificados
+2. **Adicionar arquivos**: `git add <arquivos_modificados>` (ou `git add .` para todos)
+3. **Fazer commit**: `git commit -m "mensagem descritiva das alterações"`
+4. **Fazer push**: `git push origin main` (ou a branch atual)
+
+## Quando Aplicar
+
+- ✅ Após qualquer modificação de código
+- ✅ Após adicionar novos arquivos
+- ✅ Após corrigir bugs
+- ✅ Após implementar features
+- ✅ Após refatorações
+
+## Exceções
+
+- ❌ Não commitar arquivos temporários (ex: `backup.json`, `*.log`, `node_modules/`)
+- ❌ Não commitar arquivos de configuração local (ex: `.env.local`)
+
+## Formato de Mensagem de Commit
+
+Use mensagens descritivas em português:
+
+```
+git commit -m "Descrição curta do que foi feito"
+```
+
+Exemplos:
+- `"Adicionar persistência de domínio selecionado por site"`
+- `"Corrigir bug no dropdown de domínios"`
+- `"Melhorar visual futurista do painel"`
+- `"Adicionar endpoints para alterar senha e usuário"`
+
+## Comandos PowerShell
+
+No PowerShell do Windows, use `;` ao invés de `&&`:
+
+```powershell
+git add .; git commit -m "mensagem"; git push origin main
+```
+
+Ou em comandos separados:
+```powershell
+git add .
+git commit -m "mensagem"
+git push origin main
+```
+
+## Checklist
+
+Antes de finalizar uma tarefa, verifique:
+- [ ] Todos os arquivos modificados foram adicionados
+- [ ] Commit foi feito com mensagem descritiva
+- [ ] Push foi realizado com sucesso
+- [ ] Nenhum arquivo temporário foi commitado
