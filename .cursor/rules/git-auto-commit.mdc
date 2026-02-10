@@ -1,13 +1,15 @@
 ---
-description: Sempre fazer commit e push para GitHub após modificações
+description: Commit e push automático para GitHub após qualquer modificação
 alwaysApply: true
 ---
 
-# Git Auto Commit e Push
+# Git — Commit e Push Automático
 
-## Regra Principal
+## Regra obrigatória
 
-**SEMPRE** que você modificar arquivos no projeto, deve:
+**SEMPRE**, ao final de qualquer tarefa em que você modificar arquivos do projeto, execute commit e push de forma **automática** (sem o usuário precisar pedir). É parte da conclusão da tarefa.
+
+Ao modificar arquivos no projeto, você DEVE:
 
 1. **Verificar o status**: `git status` para ver quais arquivos foram modificados
 2. **Adicionar arquivos**: `git add <arquivos_modificados>` (ou `git add .` para todos)
@@ -56,10 +58,11 @@ git commit -m "mensagem"
 git push origin main
 ```
 
-## Checklist
+## Checklist (automático)
 
-Antes de finalizar uma tarefa, verifique:
-- [ ] Todos os arquivos modificados foram adicionados
-- [ ] Commit foi feito com mensagem descritiva
-- [ ] Push foi realizado com sucesso
-- [ ] Nenhum arquivo temporário foi commitado
+Antes de finalizar uma tarefa que alterou código:
+- [ ] `git add` nos arquivos modificados (nunca `backup.json` nem arquivos temporários)
+- [ ] `git commit -m "mensagem em português"`
+- [ ] `git push origin main`
+
+Se a tarefa incluiu alterações em arquivos, **não considere a tarefa encerrada sem ter feito commit e push**.

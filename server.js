@@ -891,17 +891,20 @@ function generateRefToken() {
 // API: Criar site (padrão: apenas Brasil; gera link para usar nos Ads) – pertence ao usuário logado
 app.post('/api/sites', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
-  const { name, domain, target_url, redirect_url, allowed_countries } = req.body;
+  const { name, domain, target_url, redirect_url, allowed_countries, block_behavior, landing_page_id, selected_domain } = req.body;
   const siteId = 'site_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   const linkCode = await generateLinkCode();
   const refToken = generateRefToken();
   const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
   const target = (target_url || '').trim() || null;
   const userId = req.session.userId;
+  const behavior = block_behavior === 'page' ? 'page' : (block_behavior === 'embed' ? 'embed' : 'redirect');
+  const lpId = behavior === 'page' && landing_page_id ? parseInt(landing_page_id, 10) : null;
+  const selDomain = (selected_domain || '').trim() || null;
   try {
     const defaultParams = (req.body.default_link_params || '').trim() || null;
-    await db.run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, default_link_params, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, datetime('now'))`,
-      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', (req.body.block_behavior === 'embed' ? 'embed' : 'redirect'), defaultParams, countries, refToken]);
+    await db.run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, default_link_params, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, landing_page_id, selected_domain, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, ?, ?, datetime('now'))`,
+      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', behavior, defaultParams, countries, refToken, lpId, selDomain]);
     const site = await db.get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
   } catch (error) {
@@ -922,21 +925,23 @@ app.put('/api/sites/:siteId', async (req, res) => {
     let refToken = existing.required_ref_token;
     if (data.regenerate_ref_token) refToken = generateRefToken();
     else if (data.required_ref_token !== undefined) refToken = (data.required_ref_token || '').trim() || null;
-    const blockBehavior = data.block_behavior === 'embed' ? 'embed' : 'redirect';
+    const blockBehavior = data.block_behavior === 'page' ? 'page' : (data.block_behavior === 'embed' ? 'embed' : 'redirect');
     const defaultParams = (data.default_link_params || '').trim() || null;
+    const lpId = blockBehavior === 'page' && data.landing_page_id ? parseInt(data.landing_page_id, 10) : null;
+    const selDomain = (data.selected_domain || '').trim() || null;
     await db.run(`
       UPDATE sites SET
         name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?, block_behavior = ?, default_link_params = ?,
         block_desktop = ?, block_facebook_library = ?, block_bots = ?,
         block_vpn = ?, block_devtools = ?,
-        allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?, selected_domain = ?
+        allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?, selected_domain = ?, landing_page_id = ?
       WHERE site_id = ?
     `, [
       data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url, blockBehavior, defaultParams,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
       data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0, refToken,
-      (data.selected_domain || '').trim() || null,
+      selDomain, lpId,
       req.params.siteId
     ]);
     res.json({ success: true });
@@ -953,6 +958,44 @@ app.put('/api/sites/:siteId/selected-domain', async (req, res) => {
   if (site.user_id != null && Number(site.user_id) !== Number(req.session.userId)) return res.status(403).json({ error: 'Acesso negado' });
   const { selected_domain } = req.body || {};
   await db.run('UPDATE sites SET selected_domain = ? WHERE site_id = ?', [(selected_domain || '').trim() || null, req.params.siteId]);
+  res.json({ success: true });
+});
+
+// ---------- API: Páginas HTML (landing customizadas) ----------
+app.get('/api/pages', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const list = await db.all('SELECT id, user_id, name, created_at FROM landing_pages WHERE user_id = ? ORDER BY name', [req.session.userId]);
+  res.json(list);
+});
+app.post('/api/pages', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const { name, html_content } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nome obrigatório' });
+  await db.run('INSERT INTO landing_pages (user_id, name, html_content) VALUES (?, ?, ?)', [req.session.userId, String(name).trim(), String(html_content || '').trim() || null]);
+  const row = await db.get('SELECT * FROM landing_pages WHERE user_id = ? ORDER BY id DESC LIMIT 1', [req.session.userId]);
+  res.status(201).json(row);
+});
+app.get('/api/pages/:id', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const row = await db.get('SELECT * FROM landing_pages WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  if (!row) return res.status(404).json({ error: 'Página não encontrada' });
+  res.json(row);
+});
+app.put('/api/pages/:id', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const { name, html_content } = req.body || {};
+  const existing = await db.get('SELECT id FROM landing_pages WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  if (!existing) return res.status(404).json({ error: 'Página não encontrada' });
+  await db.run('UPDATE landing_pages SET name = ?, html_content = ? WHERE id = ?', [String(name ?? '').trim() || null, String(html_content ?? '').trim() || null, req.params.id]);
+  const row = await db.get('SELECT * FROM landing_pages WHERE id = ?', [req.params.id]);
+  res.json(row);
+});
+app.delete('/api/pages/:id', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
+  const existing = await db.get('SELECT id FROM landing_pages WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  if (!existing) return res.status(404).json({ error: 'Página não encontrada' });
+  await db.run('DELETE FROM landing_pages WHERE id = ?', [req.params.id]);
+  await db.run('UPDATE sites SET landing_page_id = NULL WHERE landing_page_id = ?', [req.params.id]);
   res.json({ success: true });
 });
 
@@ -1185,6 +1228,16 @@ async function sendEmbeddedPage(res, targetUrl) {
   }
 }
 
+async function sendCustomPage(res, site) {
+  const pageId = site.landing_page_id;
+  if (!pageId || !site.user_id) return false;
+  const page = await db.get('SELECT html_content FROM landing_pages WHERE id = ? AND user_id = ?', [pageId, site.user_id]);
+  if (!page || page.html_content == null) return false;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(page.html_content);
+  return true;
+}
+
 // ========== LINK PARA ADS: /go/:code ==========
 // Você cola seu link no painel → o sistema gera um novo link → use esse link nos anúncios.
 // Quem clica passa aqui: checamos (desktop, bot, emulador, país por IP) e redirecionamos.
@@ -1204,6 +1257,7 @@ app.get('/go/:code', async (req, res) => {
       await db.run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, datetime('now'))`,
         [site.site_id, (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim() || 'unknown', req.headers['user-agent'] || '', (req.headers['referer'] || req.headers['referrer'] || ''), fullUrl, null, null, null, null, null, null, null, blockReasonRef]);
       const blockUrl = site.redirect_url || 'https://www.google.com/';
+      if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
       if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
       return res.redirect(302, blockUrl);
     }
@@ -1274,6 +1328,7 @@ app.get('/go/:code', async (req, res) => {
 
   if (wasBlocked) {
     const blockUrl = site.redirect_url || 'https://www.google.com/';
+    if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
     if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
     return res.redirect(302, blockUrl);
   }
