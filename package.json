@@ -1,8 +1,11 @@
 {
-  "name": "cloaker-panel",
+  "name": "ghost-vic",
   "version": "1.0.0",
-  "description": "Sistema de Cloaking com Painel de Controle",
+  "description": "GhostVic - Sistema de Camuflagem Avançado",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"

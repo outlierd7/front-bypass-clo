@@ -12,6 +12,18 @@ const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Middleware para garantir que o BD (Postgres) conecte no Vercel antes da rota
+app.use(async (req, res, next) => {
+  if (process.env.VERCEL) {
+    try {
+      await db.initDb();
+    } catch (e) {
+      console.error('Erro initDb Vercel:', e);
+    }
+  }
+  next();
+});
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -161,7 +173,7 @@ app.post('/api/login', async (req, res) => {
 
 // API: Logout
 app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => {});
+  req.session.destroy(() => { });
   res.json({ success: true });
 });
 
@@ -713,7 +725,7 @@ app.post('/api/backup/send', async (req, res) => {
   const url = process.env.BACKUP_WEBHOOK_URL || '';
   if (!url.trim()) return res.status(400).json({ error: 'Configure BACKUP_WEBHOOK_URL no Railway' });
   const payload = await exportBackup();
-  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(() => {}).catch(() => {});
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(() => { }).catch(() => { });
   res.json({ success: true, message: 'Backup enviado para o webhook' });
 });
 
@@ -722,8 +734,8 @@ const BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 if (process.env.BACKUP_WEBHOOK_URL) {
   setInterval(() => {
     exportBackup().then(payload => {
-      fetch(process.env.BACKUP_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
-    }).catch(() => {});
+      fetch(process.env.BACKUP_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => { });
+    }).catch(() => { });
   }, BACKUP_INTERVAL_MS);
 }
 
@@ -749,7 +761,7 @@ app.post('/api/track', async (req, res) => {
   try {
     const data = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-    
+
     const parser = new UAParser(data.userAgent);
     const ua = parser.getResult();
 
@@ -1117,7 +1129,7 @@ app.get('/api/export', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
   const visitors = await db.all('SELECT v.* FROM visitors v INNER JOIN sites s ON s.site_id = v.site_id AND s.user_id = ? ORDER BY v.created_at DESC', [req.session.userId]);
   const format = req.query.format || 'json';
-  
+
   if (format === 'csv') {
     if (visitors.length === 0) return res.send('');
     const headers = Object.keys(visitors[0]).join(',');
@@ -1159,7 +1171,7 @@ async function getGeoByIP(ip) {
         return out;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   try {
     const res = await fetch(`http://ip-api.com/json/${normalized}?fields=countryCode,city,regionName,isp`, { signal: AbortSignal.timeout(5000), headers });
@@ -1173,7 +1185,7 @@ async function getGeoByIP(ip) {
         return out;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   try {
     const res = await fetch(`https://ipwho.is/${normalized}`, { signal: AbortSignal.timeout(5000), headers });
@@ -1187,7 +1199,7 @@ async function getGeoByIP(ip) {
         return out;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   return out;
 }
@@ -1352,12 +1364,13 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Iniciar servidor
-db.initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`
+// Iniciar servidor somente se não for importado (Vercel importa, local roda direto)
+if (require.main === module) {
+  db.initDb().then(() => {
+    app.listen(PORT, () => {
+      console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║           🔒 CLOAKER PRO - Painel de Controle             ║
+║               👻 GHOST VIC - Stealth Panel                ║
 ╠═══════════════════════════════════════════════════════════╣
 ║                                                           ║
 ║  🚀 Servidor rodando em: http://localhost:${PORT}            ║
@@ -1369,8 +1382,12 @@ db.initDb().then(() => {
 ║     3. Use o link gerado como URL de destino nos Ads      ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
-    `);
+      `);
+    });
+  }).catch(err => {
+    console.error('Erro ao iniciar:', err);
   });
-}).catch(err => {
-  console.error('Erro ao iniciar:', err);
-});
+}
+
+// Exporta o app para o Vercel (serverless)
+module.exports = app;

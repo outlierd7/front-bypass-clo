@@ -1,146 +1,495 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Cloaker Pro</title>
+  <title>👻 GHOST VIC | Acesso Restrito</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f0f23; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: #16213e; border: 1px solid #2a2a4a; border-radius: 20px; padding: 40px; max-width: 400px; width: 100%; }
-    .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
-    .logo i { font-size: 36px; color: #e94560; }
-    .logo h1 { font-size: 24px; font-weight: 600; }
-    .form-group { margin-bottom: 20px; }
-    .form-label { display: block; margin-bottom: 8px; color: #a0a0b0; font-size: 14px; }
-    .form-input { width: 100%; padding: 12px 15px; border-radius: 10px; border: 1px solid #2a2a4a; background: #1a1a2e; color: #fff; font-size: 14px; }
-    .form-input:focus { outline: none; border-color: #e94560; }
-    .btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-size: 16px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #e94560, #ff6b6b); color: white; margin-top: 10px; }
-    .btn:hover { opacity: 0.9; }
-    .msg { margin-top: 15px; padding: 10px; border-radius: 8px; font-size: 13px; display: none; }
-    .msg.error { background: rgba(220,53,69,0.2); color: #dc3545; display: block; }
-    .msg.success { background: rgba(0,217,165,0.2); color: #00d9a5; display: block; }
-    #setupBox { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #2a2a4a; }
-    .setup-title { font-size: 14px; color: #a0a0b0; margin-bottom: 15px; }
+    :root {
+      --bg-dark: #000000;
+      --bg-darker: #050505;
+      --card-bg: rgba(10, 10, 10, 0.85);
+      --ghost-white: #f0f0f0;
+      --ghost-glow: rgba(255, 255, 255, 0.15);
+      --accent-purple: #6a0dad;
+      --accent-glow: rgba(106, 13, 173, 0.5);
+      --danger: #cf0000;
+      --border: rgba(255, 255, 255, 0.08);
+      --text-main: #e0e0e0;
+      --text-muted: #666;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Fog / Mist Effect */
+    body::before,
+    body::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog1.png') repeat-x;
+      /* Fog texture */
+      background-size: 200% auto;
+      opacity: 0.15;
+      animation: fogMove 60s linear infinite;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    body::after {
+      background-image: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog2.png');
+      animation-duration: 40s;
+      animation-direction: reverse;
+      opacity: 0.1;
+    }
+
+    @keyframes fogMove {
+      0% {
+        background-position: 0 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    /* Subtle eerie glow background */
+    .bg-glow {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(30, 0, 50, 0.3) 0%, #000 70%);
+      z-index: -2;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      /* More rigid, less rounded */
+      padding: 40px 30px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top border glow line */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--ghost-white), transparent);
+      opacity: 0.5;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 35px;
+      position: relative;
+    }
+
+    .ghost-icon {
+      font-size: 64px;
+      color: var(--ghost-white);
+      text-shadow: 0 0 15px var(--ghost-glow);
+      animation: hoverGhost 4s ease-in-out infinite;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+
+    @keyframes hoverGhost {
+
+      0%,
+      100% {
+        transform: translateY(0);
+        opacity: 0.9;
+        text-shadow: 0 0 15px var(--ghost-glow);
+      }
+
+      50% {
+        transform: translateY(-10px);
+        opacity: 1;
+        text-shadow: 0 0 25px rgba(255, 255, 255, 0.4);
+      }
+    }
+
+    .logo h1 {
+      font-family: 'Cinzel', serif;
+      /* Gothic/Medieval font */
+      font-size: 28px;
+      letter-spacing: 4px;
+      color: var(--ghost-white);
+      text-transform: uppercase;
+      margin: 0;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    .logo p {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--ghost-white);
+      transform: scaleX(0);
+      transition: transform 0.3s;
+    }
+
+    .tab-btn.active {
+      color: var(--ghost-white);
+      font-weight: 600;
+    }
+
+    .tab-btn.active::after {
+      transform: scaleX(1);
+      box-shadow: 0 0 10px var(--ghost-glow);
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 18px;
+      transition: 0.3s;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 15px 15px 15px 45px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--ghost-white);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--ghost-white);
+      background: rgba(10, 10, 10, 0.8);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+    }
+
+    .form-input:focus+.input-icon {
+      color: var(--ghost-white);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      background: transparent;
+      border: 1px solid var(--ghost-white);
+      color: var(--ghost-white);
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.4s;
+      position: relative;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background: var(--ghost-white);
+      color: #000;
+      box-shadow: 0 0 20px var(--ghost-glow);
+    }
+
+    .msg {
+      margin-top: 20px;
+      padding: 10px;
+      font-size: 11px;
+      text-align: center;
+      letter-spacing: 0.5px;
+      display: none;
+      border-left: 2px solid;
+    }
+
+    .msg.error {
+      border-color: var(--danger);
+      background: linear-gradient(90deg, rgba(207, 0, 0, 0.1), transparent);
+      color: #ff8080;
+    }
+
+    .msg.success {
+      border-color: #00ff88;
+      background: linear-gradient(90deg, rgba(0, 255, 136, 0.1), transparent);
+      color: #80ffc0;
+    }
+
+    .auth-form {
+      display: none;
+      animation: fadeIn 0.8s ease;
+    }
+
+    .auth-form.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 10px;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Setup Box Styling */
+    #setupBox {
+      display: none;
+      border: 1px dashed var(--accent-purple);
+      padding: 20px;
+      margin-top: 20px;
+      background: rgba(106, 13, 173, 0.05);
+    }
+
+    #setupBox .setup-title {
+      color: #d8b4fe;
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <div class="logo">
-      <i class="ri-shield-keyhole-fill"></i>
-      <h1>Cloaker Pro</h1>
-    </div>
-    <form id="loginForm">
-      <div class="form-group">
-        <label class="form-label">Usuário</label>
-        <input type="text" class="form-input" id="username" name="username" required autocomplete="username">
+
+  <div class="bg-glow"></div>
+
+  <div class="container">
+    <div class="card">
+      <div class="logo">
+        <div class="ghost-icon"><i class="ri-ghost-2-line"></i></div>
+        <h1>Ghost Vic</h1>
+        <p>Shadow Operations Panel</p>
       </div>
-      <div class="form-group">
-        <label class="form-label">Senha</label>
-        <input type="password" class="form-input" id="password" name="password" required autocomplete="current-password">
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+        <button class="tab-btn" onclick="switchTab('signup')">Solicitar</button>
       </div>
-      <button type="submit" class="btn"><i class="ri-login-box-line"></i> Entrar</button>
-      <div id="loginMsg" class="msg"></div>
-    </form>
-    <div id="signupBox" style="margin-top: 25px; padding-top: 25px; border-top: 1px solid #2a2a4a;">
-      <div class="setup-title">Não tem conta? Solicite acesso (o administrador irá aprovar):</div>
-      <form id="signupForm">
+
+      <!-- LOGIN -->
+      <form id="loginForm" class="auth-form active">
         <div class="form-group">
-          <label class="form-label">Usuário desejado</label>
-          <input type="text" class="form-input" id="signupUsername" required minlength="2" placeholder="nome de login">
+          <input type="text" class="form-input" id="username" name="username" required autocomplete="username"
+            placeholder="CODENAME">
+          <i class="ri-user-5-line input-icon"></i>
         </div>
         <div class="form-group">
-          <label class="form-label">Senha (mín. 6 caracteres)</label>
-          <input type="password" class="form-input" id="signupPassword" required minlength="6" placeholder="••••••••">
+          <input type="password" class="form-input" id="password" name="password" required
+            autocomplete="current-password" placeholder="PASSPHRASE">
+          <i class="ri-lock-2-line input-icon"></i>
         </div>
-        <button type="submit" class="btn" style="background: var(--bg-card); border: 1px solid #2a2a4a;"><i class="ri-user-add-line"></i> Solicitar acesso</button>
+        <button type="submit" class="btn">Authenticar</button>
+        <div id="loginMsg" class="msg"></div>
+      </form>
+
+      <!-- SIGNUP -->
+      <form id="signupForm" class="auth-form">
+        <div class="form-group">
+          <input type="text" class="form-input" id="signupUsername" required minlength="2" placeholder="NEW AGENT ID">
+          <i class="ri-user-add-line input-icon"></i>
+        </div>
+        <div class="form-group">
+          <input type="password" class="form-input" id="signupPassword" required minlength="6" placeholder="SECRET KEY">
+          <i class="ri-key-2-line input-icon"></i>
+        </div>
+        <button type="submit" class="btn">Enviar Requisição</button>
         <div id="signupMsg" class="msg"></div>
+        <p style="text-align:center; font-size:10px; color:#555; margin-top:15px; letter-spacing:0.5px;">ESTE ACESSO É
+          MONITORADO.</p>
       </form>
+
+      <!-- SETUP (First Run) -->
+      <div id="setupBox">
+        <div class="setup-title"><i class="ri-error-warning-line"></i> SISTEMA NÃO INICIADO</div>
+        <form id="setupForm">
+          <div class="form-group">
+            <input type="text" class="form-input" id="setupUsername" required placeholder="ADMIN MASTER"
+              style="border-color:#d8b4fe;">
+          </div>
+          <div class="form-group">
+            <input type="password" class="form-input" id="setupPassword" required placeholder="SECRET MASTER"
+              style="border-color:#d8b4fe;">
+          </div>
+          <button type="submit" class="btn" style="border-color:#d8b4fe; color:#d8b4fe;">INICIAR PROTOCOLO</button>
+          <div id="setupMsg" class="msg"></div>
+        </form>
+      </div>
+
     </div>
-    <div id="setupBox">
-      <div class="setup-title">Primeiro acesso? Crie o usuário administrador:</div>
-      <form id="setupForm">
-        <div class="form-group">
-          <label class="form-label">Usuário (admin)</label>
-          <input type="text" class="form-input" id="setupUsername" required minlength="2">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Senha (mín. 6 caracteres)</label>
-          <input type="password" class="form-input" id="setupPassword" required minlength="6">
-        </div>
-        <button type="submit" class="btn"><i class="ri-user-add-line"></i> Criar administrador</button>
-        <div id="setupMsg" class="msg"></div>
-      </form>
+    <div class="footer">
+      GhostVic Systems v2.0 <br> Silent Operations
     </div>
   </div>
+
   <script>
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+      if (tab === 'login') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('loginForm').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('signupForm').classList.add('active');
+      }
+    }
+
+    // Logic Elements
     var loginMsg = document.getElementById('loginMsg');
     var setupBox = document.getElementById('setupBox');
     var setupMsg = document.getElementById('setupMsg');
     var signupMsg = document.getElementById('signupMsg');
+    var tabs = document.querySelector('.tabs');
 
-    document.getElementById('signupForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      signupMsg.className = 'msg'; signupMsg.textContent = '';
-      var form = document.getElementById('signupForm');
-      fetch('/api/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: document.getElementById('signupUsername').value.trim(), password: document.getElementById('signupPassword').value })
-      }).then(function(r) {
-        return r.json().then(function(data) {
-          if (r.ok) {
-            signupMsg.className = 'msg success'; signupMsg.textContent = data.message || 'Solicitação enviada. Aguarde a aprovação.';
-            document.getElementById('signupUsername').value = ''; document.getElementById('signupPassword').value = '';
-          } else {
-            signupMsg.className = 'msg error'; signupMsg.textContent = data.error || 'Erro ao solicitar';
-          }
+    // API Helper
+    const api = async (url, data) => {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(data)
         });
-      }).catch(function() { signupMsg.className = 'msg error'; signupMsg.textContent = 'Erro de conexão'; });
+        const json = await res.json();
+        return { ok: res.ok, data: json };
+      } catch (e) { return { ok: false, error: 'Connection Error' }; }
+    };
+
+    // Check Status
+    fetch('/api/me').then(r => {
+      if (r.ok) window.location.href = '/';
+      else return fetch('/api/setup/check').then(r2 => r2.ok ? r2.json() : {});
+    }).then(d => {
+      if (d && d.setupRequired) {
+        setupBox.style.display = 'block';
+        tabs.style.display = 'none';
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('signupForm').style.display = 'none';
+      }
     });
 
-    fetch('/api/me', { credentials: 'include' }).then(function(r) {
-      if (r.ok) { window.location.href = '/'; return; }
-      return fetch('/api/setup/check', { credentials: 'include' }).then(function(r2) { return r2.ok ? r2.json() : {}; });
-    }).then(function(data) {
-      if (data && data.setupRequired) setupBox.style.display = 'block';
-    });
-
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    // Handlers
+    document.getElementById('loginForm').onsubmit = async (e) => {
       e.preventDefault();
-      loginMsg.className = 'msg'; loginMsg.textContent = '';
-      var form = e.target;
-      fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ username: form.username.value.trim(), password: form.password.value })
-      }).then(function(r) {
-        return r.json().then(function(data) {
-          if (r.ok) { window.location.href = '/'; return; }
-          loginMsg.className = 'msg error'; loginMsg.textContent = data.error || 'Erro ao entrar';
-        });
-      }).catch(function() { loginMsg.className = 'msg error'; loginMsg.textContent = 'Erro de conexão'; });
-    });
+      loginMsg.className = 'msg'; loginMsg.textContent = 'Decrypting credentials...'; loginMsg.style.display = 'block';
+      const res = await api('/api/login', { username: e.target.username.value, password: e.target.password.value });
+      if (res.ok) window.location.href = '/';
+      else { loginMsg.className = 'msg error'; loginMsg.textContent = res.data.error || 'ACCESS DENIED'; }
+    };
 
-    document.getElementById('setupForm').addEventListener('submit', function(e) {
+    document.getElementById('signupForm').onsubmit = async (e) => {
       e.preventDefault();
-      setupMsg.className = 'msg'; setupMsg.textContent = '';
-      var form = e.target;
-      fetch('/api/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ username: form.setupUsername.value.trim(), password: form.setupPassword.value })
-      }).then(function(r) {
-        return r.json().then(function(data) {
-          if (r.ok) { window.location.href = '/'; return; }
-          setupMsg.className = 'msg error'; setupMsg.textContent = data.error || 'Erro ao criar';
-        });
-      }).catch(function() { setupMsg.className = 'msg error'; setupMsg.textContent = 'Erro de conexão'; });
-    });
+      signupMsg.className = 'msg'; signupMsg.textContent = 'Encrypting request...'; signupMsg.style.display = 'block';
+      const res = await api('/api/signup', { username: document.getElementById('signupUsername').value, password: document.getElementById('signupPassword').value });
+      if (res.ok) { signupMsg.className = 'msg success'; signupMsg.textContent = 'REQUEST LOGGED.'; e.target.reset(); }
+      else { signupMsg.className = 'msg error'; signupMsg.textContent = res.data.error || 'ERROR'; }
+    };
 
-      </script>
+    document.getElementById('setupForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const res = await api('/api/setup', { username: e.target.setupUsername.value, password: e.target.setupPassword.value });
+      if (res.ok) window.location.href = '/';
+      else { setupMsg.className = 'msg error'; setupMsg.textContent = res.data.error; setupMsg.style.display = 'block'; }
+    };
+  </script>
 </body>
+
 </html>

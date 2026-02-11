@@ -84,35 +84,23 @@ Cole o script no `<head>` de cada landing page:
 
 ## ☁️ Deploy em Hospedagem
 
-### Opção 1: Railway (Recomendado - Grátis)
-1. Acesse [railway.app](https://railway.app)
-2. Conecte seu GitHub
-3. Faça upload da pasta
-4. Deploy automático!
+Este projeto está configurado para rodar em:
 
-### Opção 2: Render (Grátis)
-1. Acesse [render.com](https://render.com)
-2. Crie um novo Web Service
-3. Conecte o repositório
-4. Deploy automático!
+### Opção 1: Vercel (Gratuito)
+- Requer banco de dados externo (PostgreSQL).
+- **[Ver Guia de Deploy no Vercel](./DEPLOY_VERCEL.md)**
 
-### Opção 3: VPS (DigitalOcean, Vultr)
+### Opção 2: Railway (Recomendado)
+- Pode usar banco interno (SQLite) ou externo (Postgres).
+- **[Ver Guia de Deploy no Railway](./NOVO-REPO-E-RAILWAY.md)**
+
+### Opção 3: VPS
+- Requer Node.js e PM2.
 ```bash
-# Na VPS, clone/envie os arquivos
 npm install
 npm install -g pm2
 pm2 start server.js --name cloaker
 pm2 save
-```
-
-### Opção 4: Vercel
-Crie um arquivo `vercel.json`:
-```json
-{
-  "version": 2,
-  "builds": [{ "src": "server.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "server.js" }]
-}
 ```
 
 ## 📁 Arquivos do Projeto
