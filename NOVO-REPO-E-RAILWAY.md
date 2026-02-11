@@ -12,7 +12,7 @@ Este clone **não está mais ligado** ao repositório em produção. O remote do
 4. **Não** marque "Add a README file", "Add .gitignore" nem "Choose a license" (repositório vazio)
 5. Clique em **Create repository**
 6. Copie a URL do repositório, algo como:  
-   `https://github.com/MRGC2024/cloaker-pro-novo.git`
+   `https://github.com/outlierd7/front-bypass-clo.git`
 
 ---
 

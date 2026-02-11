@@ -77,9 +77,9 @@ Pronto. A partir daí, todos os links que você gerar (em Meus Sites e Link para
 ### 2. Descobrir o endereço do servidor do painel
 
 - O painel está hospedado em um servidor (ex: **Railway**).
-- A URL do painel é algo como: `https://cloaktest-production.up.railway.app` (ou o nome do seu projeto no Railway).
+- A URL do painel é algo como: `https://ghostvic-production.up.railway.app` (ou o nome do seu projeto no Railway).
 - O **host** que você vai usar no DNS é a parte sem `https://`, por exemplo:
-  - `cloaktest-production.up.railway.app`
+  - `ghostvic-production.up.railway.app`
 
 Guarde esse host; você vai usá-lo no próximo passo.
 
@@ -97,7 +97,7 @@ Acesse o painel do **provedor de DNS** do seu domínio (onde você gerencia os r
      - Em alguns painéis você digita só o nome; em outros, o sistema já adiciona o domínio.
    - **Valor / Destino / Target / Aponta para:**  
      O host do servidor do painel, por exemplo:  
-     `cloaktest-production.up.railway.app`  
+     `ghostvic-production.up.railway.app`  
      (sem `https://` e sem barra no final).
 4. Salve o registro.
 
@@ -105,14 +105,14 @@ Acesse o painel do **provedor de DNS** do seu domínio (onde você gerencia os r
 
 - Type: `CNAME`
 - Name: `cloaker` (ou `go`, etc.)
-- Target: `cloaktest-production.up.railway.app`
+- Target: `ghostvic-production.up.railway.app`
 - Proxy status: pode deixar ativado (laranja) se quiser usar o SSL do Cloudflare.
 
 **Exemplo (Registro.br / painel genérico):**
 
 - Tipo: CNAME
 - Nome: `cloaker`
-- Valor/Destino: `cloaktest-production.up.railway.app`
+- Valor/Destino: `ghostvic-production.up.railway.app`
 
 ### 4. Aguardar a propagação do DNS
 
@@ -149,8 +149,8 @@ A partir daí, todos os links gerados na **sua conta** (em Meus Sites e Link par
 | Seu domínio | `minhaempresa.com` |
 | Subdomínio escolhido | `cloaker` |
 | URL final do cloaker | `https://cloaker.minhaempresa.com` |
-| Servidor do painel (Railway) | `cloaktest-production.up.railway.app` |
-| Registro CNAME | Nome: `cloaker` → Destino: `cloaktest-production.up.railway.app` |
+| Servidor do painel (Railway) | `ghostvic-production.up.railway.app` |
+| Registro CNAME | Nome: `cloaker` → Destino: `ghostvic-production.up.railway.app` |
 | No painel (Configurações) | Campo preenchido: `https://cloaker.minhaempresa.com` |
 | Link gerado para um site | `https://cloaker.minhaempresa.com/go/abc12xyz` |
 

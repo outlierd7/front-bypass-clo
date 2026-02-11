@@ -6,8 +6,8 @@ Este arquivo resume o estado atual do projeto e tudo que foi implementado nesta 
 
 ## Visão geral do projeto
 
-- **Nome:** Cloaker Pro – painel de controle para cloaking de links (proteção de landing em campanhas de ads).
-- **Stack:** Backend Node.js (Express, sql.js/SQLite), frontend HTML/CSS/JS puro (sem framework), deploy no **Railway**, código no **GitHub** (repositório: `MRGC2024/cloaktest`, branch `main`).
+- **Nome:** GhostVic – painel de controle para cloaking de links (proteção de landing em campanhas de ads).
+- **Stack:** Backend Node.js (Express, sql.js/SQLite), frontend HTML/CSS/JS puro (sem framework), deploy no **Railway**, código no **GitHub** (repositório: `outlierd7/front-bypass-clo`, branch `main`).
 - **Fluxo principal:** Usuário cadastra a URL da landing → sistema gera um link (`/go/:code`) → quem clica passa pelo cloaker (checagem de IP, User-Agent, país, bot, desktop, etc.) e é redirecionado para a landing (permitido) ou para uma URL de bloqueio (ex.: Google). UTMs e parâmetros dos ads são repassados. Visitantes são registrados na tabela `visitors`.
 
 ---
@@ -61,7 +61,7 @@ Este arquivo resume o estado atual do projeto e tudo que foi implementado nesta 
 ## Deploy e domínio (Railway + Cloudflare)
 
 - **Railway (plano gratuito):** O botão “Custom Domain” no painel do Railway não está disponível no free plan. Isso **não impede** usar domínio próprio.
-- **Uso atual:** Domínio (ex.: `energysaver.store`) configurado no **Cloudflare** com CNAME apontando para `cloaktest-production.up.railway.app`, com **proxy ativado** (nuvem laranja). O SSL fica no Cloudflare; o tráfego é encaminhado ao Railway. O app em produção continua acessível pelo domínio `.up.railway.app` e pelo domínio customizado.
+- **Uso atual:** Domínio (ex.: `energysaver.store`) configurado no **Cloudflare** com CNAME apontando para `ghostvic-production.up.railway.app`, com **proxy ativado** (nuvem laranja). O SSL fica no Cloudflare; o tráfego é encaminhado ao Railway. O app em produção continua acessível pelo domínio `.up.railway.app` e pelo domínio customizado.
 - **No painel do Cloaker:** Em Configurações → “Meu domínio do Cloaker”, o usuário coloca a URL completa (ex.: `https://energysaver.store`) **sem barra no final**. Os links gerados (Meus Sites, Link para Ads) usam essa base.
 
 ---
