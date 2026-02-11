@@ -33,7 +33,7 @@ git push origin main
 
 1.  Acesse [vercel.com](https://vercel.com) e faça login com seu GitHub.
 2.  Clique em **Add New...** -> **Project**.
-3.  Selecione o repositório `cloaker-pro-novo` e clique em **Import**.
+3.  Selecione o repositório `front-bypass-clo` (ou o nome que você deu) e clique em **Import**.
 4.  Em **Environment Variables**, adicione as seguintes variáveis:
 
     | Nome | Valor | Descrição |

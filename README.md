@@ -16,7 +16,7 @@ Sistema completo de cloaking com painel de controle para monitorar **múltiplos 
 
 ```bash
 # 1. Entre na pasta
-cd "cloaker teste"
+cd "ghost-vic"
 
 # 2. Instale as dependências (já feito!)
 npm install
@@ -71,7 +71,7 @@ Cole o script no `<head>` de cada landing page:
                                  │
                                  ▼
                     ┌────────────────────────┐
-                    │   Servidor Cloaker     │
+                    │      GHOST VIC         │
                     │   (único servidor)     │
                     └────────────┬───────────┘
                                  │
@@ -99,14 +99,14 @@ Este projeto está configurado para rodar em:
 ```bash
 npm install
 npm install -g pm2
-pm2 start server.js --name cloaker
+pm2 start server.js --name ghostvic
 pm2 save
 ```
 
 ## 📁 Arquivos do Projeto
 
 ```
-cloaker teste/
+ghost-vic/
 ├── server.js          # Servidor principal
 ├── package.json       # Dependências
 ├── cloaker.db         # Banco de dados (criado automaticamente)

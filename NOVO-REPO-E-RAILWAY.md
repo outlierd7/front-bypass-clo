@@ -62,8 +62,7 @@ Se você quiser **replicar o serviço** no Railway (várias instâncias) para me
 
 | Remote   | Repositório              | Uso                          |
 |----------|--------------------------|------------------------------|
-| `antigo` | MRGC2024/cloaktest       | Produção atual — **não usar** |
-| `origin` | Seu repo novo (após add) | Desenvolvimento e Railway novo |
+| `origin` | outlierd7/front-bypass-clo | Produção e desenvolvimento |
 
 Depois de rodar `git remote add origin ...` e `git push -u origin main`, o código deste clone estará só no repo novo e você pode conectar um **novo** projeto no Railway a esse repo, sem mexer no que já está rodando.
 
