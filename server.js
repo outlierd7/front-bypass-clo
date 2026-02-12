@@ -82,14 +82,23 @@ function isPanelRoute(path, method) {
 // Em domínios que não são o do painel: não redirecionar para o painel; mostrar página em manutenção.
 // Assim quem acessar só o domínio (ex.: https://iniictranfi.sbs/) não vê nada útil — só /go/ e /t/ funcionam.
 const MAINTENANCE_HTML = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Em manutenção</title><style>body{font-family:system-ui,sans-serif;background:#1a1a1a;color:#eee;margin:0;padding:2rem;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;}h1{font-size:1.5rem;}</style></head><body><div><h1>Em manutenção</h1><p>Volte mais tarde.</p></div></body></html>';
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (!PANEL_DOMAIN) return next();
   const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
-  if (!isPanelRoute(req.path, req.method)) return next(); // /go/, /t/, api/config: qualquer domínio
 
-  // Se o host for o PANEL_DOMAIN ou o DEFAULT_DOMAIN (quando for o mesmo), permite acesso.
-  // Caso contrário, mostra manutenção para evitar que index.html/login apareça no domínio de cloaking.
+  // /go/, /t/, api/config: funcionam em qualquer host (cloaking)
+  if (!isPanelRoute(req.path, req.method)) return next();
+
+  // Se o host for o PANEL_DOMAIN ou o DEFAULT_DOMAIN, permite acesso ao painel.
   if (host === PANEL_DOMAIN || (DEFAULT_DOMAIN && host === DEFAULT_DOMAIN)) return next();
+
+  // BYOD (Pink Rabbit Logic): Se o host estiver em allowed_domains, permite acesso ao painel.
+  try {
+    const customMatch = await db.get('SELECT 1 FROM allowed_domains WHERE domain = ? LIMIT 1', [host]);
+    if (customMatch) return next();
+  } catch (e) {
+    console.error('Erro ao verificar domínio BYOD no middleware:', e.message);
+  }
 
   res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').send(MAINTENANCE_HTML);
 });
@@ -659,26 +668,34 @@ app.get('/api/domains/check-dns', async (req, res) => {
   if (!domain) return res.status(400).json({ error: 'Informe o parâmetro domain' });
   const expectedTarget = (req.query.target || '').trim() || getCnameTarget(req);
   if (!expectedTarget) return res.status(400).json({ error: 'Destino CNAME não definido' });
+
   try {
-    const cname = await dns.resolve(domain, 'CNAME').catch(() => []);
-    const resolved = Array.isArray(cname) && cname.length ? cname[0].replace(/\.$/, '') : null;
+    const cnameRecords = await dns.resolve(domain, 'CNAME').catch(() => []);
+    const resolved = (cnameRecords.length > 0) ? cnameRecords[0].replace(/\.$/, '') : null;
     const propagated = !!resolved && resolved.toLowerCase() === expectedTarget.toLowerCase();
+
     return res.json({
       domain,
       expectedTarget,
       resolved: resolved || null,
       propagated,
       message: propagated
-        ? 'DNS propagado. O domínio está apontando corretamente para o servidor.'
-        : (resolved ? `O domínio aponta para ${resolved}. O esperado é ${expectedTarget}.` : 'Ainda não encontramos registro CNAME para este domínio. Pode levar alguns minutos até 48h.')
+        ? '✅ DNS propagado! O domínio está configurado corretamente.'
+        : (resolved
+          ? `❌ O domínio está apontando para "${resolved}", mas o esperado é "${expectedTarget}". Corrija no seu DNS.`
+          : '⏳ Nenhum registro CNAME foi encontrado ainda. Verifique se você salvou a alteração no seu provedor de DNS (Cloudflare, etc).')
     });
   } catch (e) {
+    let msg = 'Erro ao consultar DNS.';
+    if (e.code === 'ENODATA' || e.code === 'ENOTFOUND') {
+      msg = 'Domínio não encontrado ou sem registros DNS. Certifique-se de que o domínio existe e você criou o CNAME.';
+    }
     return res.json({
       domain,
       expectedTarget,
       resolved: null,
       propagated: false,
-      message: e.code === 'ENODATA' ? 'Nenhum registro CNAME encontrado para este domínio. Configure no seu provedor de DNS.' : (e.message || 'Erro ao consultar DNS.')
+      message: msg
     });
   }
 });

@@ -1875,44 +1875,7 @@
         </div>
       </div>
 
-      <div class="card" id="domainCard" style="display: none;">
-        <div class="card-header">
-          <h3 class="card-title"><i class="ri-information-line"></i> Instruções para Domínios</h3>
-        </div>
-        <div class="card-body">
-          <li><strong>No Railway (obrigatório):</strong> Projeto → seu serviço → <strong>Networking</strong> → <strong>+
-              Custom Domain</strong> → adicione o domínio (ex: <code>cloaker.seudominio.com</code> ou
-            <code>iniiciopropo.sbs</code>). Sem isso, o domínio não chega ao seu app.
-          </li>
-          <li><strong>Tenha um domínio</strong> (ex: meusite.com.br). Você pode usar um subdomínio (ex:
-            cloaker.meusite.com.br ou go.meusite.com.br).</li>
-          <li><strong>Acesse o painel do seu provedor de DNS</strong> (onde o domínio está registrado: Registro.br,
-            Cloudflare, GoDaddy, HostGator, etc.).</li>
-          <li><strong>Crie um registro CNAME:</strong>
-            <ul style="margin-top: 8px; margin-bottom: 8px;">
-              <li><strong>Nome/Host:</strong> o subdomínio que você quer usar (ex: <code>cloaker</code> ou
-                <code>go</code>). Se for usar o domínio raiz (meusite.com.br), use <code>@</code> ou consulte a
-                documentação do seu DNS – alguns exigem A/ALIAS em vez de CNAME.
-              </li>
-              <li><strong>Valor/Destino:</strong> aponte para o domínio do seu app no Railway, ex:
-                <code>cloaker-pro-novo-production.up.railway.app</code> (veja em Railway → Networking).
-              </li>
-            </ul>
-          </li>
-          <li><strong>Aguarde a propagação do DNS</strong> (pode levar de alguns minutos a 48 horas). Você pode testar
-            com <code>nslookup cloaker.seudominio.com</code> no terminal.</li>
-          <li><strong>Use HTTPS:</strong> se seu provedor oferecer SSL (ex: Cloudflare “Flexible” ou “Full”), ative. A
-            URL final deve ser <code>https://cloaker.seudominio.com</code>.</li>
-          <li><strong>No painel, em Configurações</strong>, preencha o campo acima com a URL completa, por exemplo:
-            <code>https://cloaker.seudominio.com</code> (sem barra no final). Clique em <strong>Salvar</strong>.
-          </li>
-          <li>Pronto. Ao gerar links em <strong>Meus Sites</strong> ou <strong>Link para Ads</strong>, os links sairão
-            como <code>https://cloaker.seudominio.com/go/XXXXX</code>.</li>
-          </ol>
-          <p style="color: var(--text-secondary); font-size: 13px;">Cadastre em <strong>Domínios</strong>, use o destino
-            CNAME no DNS e escolha o domínio ao gerar o link em Meus Sites.</p>
-        </div>
-      </div>
+      <!-- O guia antigo foi removido e integrado na nova seção de Domínios abaixo -->
       <div class="card" id="databaseCard" style="display: none;">
         <div class="card-header">
           <h3 class="card-title"><i class="ri-database-2-line"></i> Backup do banco (admin)</h3>
@@ -1999,22 +1962,78 @@
         <button class="btn btn-primary" onclick="document.getElementById('domainModal').classList.add('active')"><i
             class="ri-add-line"></i> Cadastrar domínio</button>
       </div>
-      <div class="card" style="border-left: 4px solid var(--primary);">
+
+      <div class="card glass-card" style="margin-bottom: 25px; border-left: 4px solid var(--primary);">
+        <div class="card-header" style="justify-content: flex-start; gap: 10px;">
+          <h3 class="card-title"><i class="ri-settings-5-line"></i> Configuração DNS (Modelo Profissional)</h3>
+        </div>
         <div class="card-body">
-          <h4 style="margin-bottom: 10px;"><i class="ri-dns-line"></i> Configuração DNS</h4>
-          <p style="color: var(--text-secondary); margin-bottom: 14px;">Cada domínio cadastrado no Railway tem um
-            <strong>Valor CNAME próprio</strong> (diferente do outro). Na tabela abaixo, use a coluna <strong>Valor
-              CNAME</strong> da linha do domínio e configure no seu provedor de DNS (Cloudflare, Registro.br, etc.) —
-            Tipo: CNAME, Nome: <code>@</code>, Valor: o que aparece na coluna. Não precisa ir ao painel do Railway para
-            pegar esses dados.
-          </p>
-          <p style="color: var(--text-secondary); font-size: 12px;">Se o domínio ainda não tiver Valor CNAME (cadastrado
-            antes da sincronia com Railway), use o valor genérico: <code id="cnameTargetPlaceholder"
-              style="font-size: 11px;">carregando...</code> <button type="button" class="btn btn-sm btn-secondary"
-              onclick="copyCnameTarget()" style="margin-left:6px"><i class="ri-file-copy-line"></i> Copiar</button></p>
+          <p style="margin-bottom: 15px; color: var(--text-secondary); font-size: 14px;">Use este hub para configurar
+            domínios customizados. Seus clientes ou você podem apontar um CNAME para o servidor.</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;">
+
+            <div
+              style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column;">
+              <h4
+                style="margin-bottom: 12px; font-size: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                <span
+                  style="background: var(--primary); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px;">1</span>
+                Apontamento CNAME
+              </h4>
+              <p style="font-size: 13px; line-height: 1.5; margin-bottom: 10px;">No seu provedor (Cloudflare, etc), crie
+                um registro <strong>CNAME</strong>:</p>
+              <div style="margin-top: auto; font-family: monospace; font-size: 12px;">
+                <div
+                  style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px; margin-bottom: 6px;">
+                  <span style="color: var(--text-secondary);">Nome:</span> <code
+                    style="color: var(--secondary);">cl</code> ou <code style="color: var(--secondary);">@</code>
+                </div>
+                <div
+                  style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px; cursor: pointer; border: 1px dashed var(--success);"
+                  onclick="copyCnameTarget()" title="Clique para copiar">
+                  <span style="color: var(--text-secondary);">Destino:</span> <code id="cnameTargetPlaceholder"
+                    style="color: var(--success); font-weight: bold;">carregando...</code>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+              <h4
+                style="margin-bottom: 12px; font-size: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                <span
+                  style="background: var(--primary); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px;">2</span>
+                Cadastro & Verificação
+              </h4>
+              <p style="font-size: 13px; line-height: 1.5; margin-bottom: 15px;">Cadastre o domínio no botão acima e use
+                a tabela abaixo para verificar se o DNS já propagou pelo mundo.</p>
+              <div
+                style="background: rgba(var(--primary-rgb), 0.1); padding: 10px; border-radius: 8px; font-size: 12px; color: var(--primary); display: flex; align-items: flex-start; gap: 8px;">
+                <i class="ri-lightbulb-line" style="font-size: 16px;"></i>
+                <span><strong>Dica:</strong> Se usar Cloudflare, desative a "Nuvem Laranja" (Proxy) para o primeiro
+                  teste se necessário.</span>
+              </div>
+            </div>
+
+            <div
+              style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+              <h4
+                style="margin-bottom: 12px; font-size: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                <span
+                  style="background: var(--primary); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px;">3</span>
+                Pronto para uso
+              </h4>
+              <p style="font-size: 13px; line-height: 1.5;">Uma vez propagado, qualquer link gerado ou acessado via este
+                domínio funcionará automaticamente com cloaking de alta performance.</p>
+            </div>
+
+          </div>
         </div>
       </div>
       <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><i class="ri-list-check-2"></i> Domínios cadastrados</h3>
+        </div>
         <div class="card-body">
           <p style="color: var(--text-secondary); margin-bottom: 15px;">Lista de domínios. Para cada um, use o
             <strong>Valor CNAME</strong> da coluna abaixo no seu provedor de DNS (cada domínio pode ter um valor
@@ -3467,6 +3486,12 @@
 
     function getLinkBaseUrl(domainHost) {
       if (domainHost) return (domainHost.startsWith('http') ? domainHost : 'https://' + domainHost).replace(/\/$/, '');
+
+      // Inteligência BYOD: Se estamos acessando pelo domínio customizado, ele vira o padrão automático
+      const currentHost = window.location.hostname.toLowerCase();
+      const isInCatalog = domainsList.some(d => d.domain && d.domain.toLowerCase() === currentHost);
+      if (isInCatalog) return window.location.origin;
+
       // Hierarquia: 1. Domínio Pessoal (Settings) > 2. Sistema Default > 3. Origem Atual
       if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) return baseUrlOrOrigin.replace(/\/$/, '');
       if (systemDefaultDomain) return 'https://' + systemDefaultDomain;
@@ -3474,6 +3499,11 @@
     }
 
     function getDefaultDomainLabel() {
+      // Inteligência BYOD: Mostrar o domínio atual no label se for um domínio customizado
+      const currentHost = window.location.hostname.toLowerCase();
+      const isInCatalog = domainsList.some(d => d.domain && d.domain.toLowerCase() === currentHost);
+      if (isInCatalog) return `Padrão (${currentHost})`;
+
       // Retorna o que o link "Padrão" vai usar na prática
       if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) {
         return `Padrão (${baseUrlOrOrigin.replace(/^https?:\/\//, '')})`;
@@ -3656,7 +3686,10 @@
         domainsList = list;
         systemDefaultDomain = data.defaultDomain || null;
         cnameTargetCache = data.cnameTarget || '';
-        if (ph) ph.textContent = cnameTargetCache || '(cada domínio mostra o valor na tabela abaixo)';
+        const placeholders = document.querySelectorAll('#cnameTargetPlaceholder');
+        placeholders.forEach(ph => {
+          ph.textContent = cnameTargetCache || '(cada domínio mostra o valor na tabela abaixo)';
+        });
 
         // Atualizar dropdowns de domínio
         const quickDomainSelect = document.getElementById('quickDomainSelect');
