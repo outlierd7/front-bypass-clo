@@ -3488,31 +3488,32 @@
     function getLinkBaseUrl(domainHost) {
       if (domainHost) {
         let host = domainHost.startsWith('http') ? domainHost.replace(/^https?:\/\//, '') : domainHost;
+        // Se for um domínio customizado, usamos apenas o prefixo isis.
         if (!host.startsWith('isis.')) host = 'isis.' + host;
         return 'https://' + host.replace(/\/$/, '');
       }
 
       const currentHost = window.location.hostname.toLowerCase();
-      // Se estamos num subdomínio de sistema (isis.slug.domain), mantém a origem
-      if (currentHost.startsWith('isis.') && currentUserSlug && currentHost.includes(`.${currentUserSlug}.`)) return window.location.origin;
+      // Se estamos num subdomínio de sistema (isis-slug.domain), mantém a origem
+      const pattern = currentUserSlug ? `isis-${currentUserSlug}.` : 'isis.';
+      if (currentHost.startsWith(pattern)) return window.location.origin;
 
-      // Hierarquia Profissional
+      // Hierarquia Profissional (System Default)
       if (systemDefaultDomain) {
-        const prefix = currentUserSlug ? `isis.${currentUserSlug}.` : 'isis.';
-        return 'https://' + prefix + systemDefaultDomain.replace(/^isis\./, '');
+        return 'https://' + pattern + systemDefaultDomain.replace(/^isis-.*?\.|^isis\./, '');
       }
       return window.location.origin;
     }
 
     function getDefaultDomainLabel() {
       // Prioridade Profissional "isis"
+      const pattern = currentUserSlug ? `isis-${currentUserSlug}.` : 'isis.';
       if (systemDefaultDomain) {
-        const prefix = currentUserSlug ? `isis.${currentUserSlug}.` : 'isis.';
-        return `Padrão (${prefix}${systemDefaultDomain.replace(/^isis\./, '')})`;
+        return `Padrão (${pattern}${systemDefaultDomain.replace(/^isis-.*?\.|^isis\./, '')})`;
       }
 
       const currentHost = window.location.hostname.toLowerCase();
-      if (currentHost.startsWith('isis.')) return `Padrão (${currentHost})`;
+      if (currentHost.startsWith('isis')) return `Padrão (${currentHost})`;
 
       if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) {
         return `Padrão (${baseUrlOrOrigin.replace(/^https?:\/\//, '')})`;

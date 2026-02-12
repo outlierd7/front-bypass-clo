@@ -88,19 +88,24 @@ app.use(async (req, res, next) => {
   if (!PANEL_DOMAIN) return next();
   const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
 
+  // PROFISSIONAL: isis. ou isis-* são SEMPRE cloaking. O Painel NUNCA abre neles.
+  const isIsisHost = host.startsWith('isis.') || host.startsWith('isis-');
+
   // /go/, /t/, api/config: funcionam em qualquer host (cloaking)
   if (!isPanelRoute(req.path, req.method, host)) return next();
 
-  // Se o host for o PANEL_DOMAIN ou o DEFAULT_DOMAIN ou app.[user].[domain], permite acesso ao painel.
+  // Se for host isis mas tentando rota de painel (ex: /), mostra manutenção (página segura)
+  if (isIsisHost) {
+    return res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').send(MAINTENANCE_HTML);
+  }
+
+  // Se o host for o PANEL_DOMAIN, DEFAULT_DOMAIN ou subdomínios administrativos (painel., app.), permite acesso.
   if (host === PANEL_DOMAIN || (DEFAULT_DOMAIN && host === DEFAULT_DOMAIN)) return next();
+  if (host.startsWith('painel.') || host.startsWith('app.')) return next();
 
-  // BYOD/Pink Rabbit: app.dominio.com ou subdomínio de sistema
-  if (host.startsWith('app.')) return next();
-
-  // BYOD (Pink Rabbit Logic): Se o host (ou o domínio raiz sem isis.) estiver em allowed_domains, permite acesso ao painel.
+  // BYOD (Custom Domains): Se o domínio raiz estiver em allowed_domains, permite acesso ao painel.
   try {
-    const rawDomain = host.startsWith('isis.') ? host.slice(5) : host;
-    const customMatch = await db.get('SELECT 1 FROM allowed_domains WHERE domain = ? LIMIT 1', [rawDomain]);
+    const customMatch = await db.get('SELECT 1 FROM allowed_domains WHERE domain = ? LIMIT 1', [host]);
     if (customMatch) return next();
   } catch (e) {
     console.error('Erro ao verificar domínio BYOD no middleware:', e.message);
