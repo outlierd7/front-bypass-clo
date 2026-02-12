@@ -164,7 +164,18 @@ Para que o painel mostre aos seus clientes o domínio correto para apontamento (
 
 ---
 
-## PARTE 5: Usar o painel nos seus sites
+## PARTE 5: Configurar Domínio Padrão (Recomendado)
+
+Para que os links gerados usem um domínio profissional (ex: `ghostvic.life`) em vez da URL do Railway:
+
+1. Vá no **Railway** → Projeto → **Variables**.
+2. Crie uma variável `DEFAULT_DOMAIN` com o seu domínio principal (ex: `ghostvic.life` ou `*.ghostvic.life`).
+3. No seu DNS (Cloudflare/Registro.br), crie um registro **CNAME** (ou **ALIAS** se for raiz) apontando para o seu domínio Railway (`front-bypass-clo-production.up.railway.app`).
+4. O painel passará a mostrar **"Padrão (ghostvic.life)"** ao criar sites e os links usarão esse domínio automaticamente.
+
+---
+
+## PARTE 6: Usar o painel nos seus sites
 
 A URL do painel é a que você gerou no Passo 2.4, por exemplo:
 

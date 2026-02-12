@@ -586,13 +586,15 @@ function removeCustomDomainFromRailway(domain) {
   });
 }
 
+const DEFAULT_DOMAIN = (process.env.DEFAULT_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+
 // API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
 app.get('/api/domains', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
   const userId = req.session.userId;
   const list = await db.all('SELECT id, domain, description, created_at, railway_cname_target FROM allowed_domains WHERE user_id = ? OR user_id IS NULL ORDER BY domain ASC', [userId]);
   const cnameTarget = getCnameTarget(req);
-  res.json({ domains: list, cnameTarget });
+  res.json({ domains: list, cnameTarget, defaultDomain: DEFAULT_DOMAIN || null });
 });
 
 app.post('/api/domains', async (req, res) => {

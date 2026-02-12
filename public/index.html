@@ -2271,6 +2271,7 @@
     let sites = [];
     let currentUser = null;
     let baseUrlOrOrigin = window.location.origin;
+    let systemDefaultDomain = null;
 
     const COUNTRY_LIST = [
       { code: 'BR', name: 'Brasil' }, { code: 'AR', name: 'Argentina' }, { code: 'BO', name: 'Bolívia' }, { code: 'CL', name: 'Chile' },
@@ -2440,7 +2441,11 @@
         sites = Array.isArray(data) ? data : [];
         try {
           const dr = await apiGet('/api/domains');
-          if (dr) { const ddata = await dr.json(); domainsList = ddata.domains || []; }
+          if (dr) {
+            const ddata = await dr.json();
+            domainsList = ddata.domains || [];
+            systemDefaultDomain = ddata.defaultDomain || null;
+          }
         } catch (e) { domainsList = []; }
         updateSiteSelectors();
         renderSitesList();
@@ -2544,7 +2549,8 @@
 
     function fillSiteModalDomainsAndPages() {
       const selDomain = document.getElementById('siteSelectedDomain');
-      if (selDomain) selDomain.innerHTML = '<option value="">Padrão</option>' + (domainsList || []).map(d => '<option value="' + (d.domain || '') + '">' + (d.domain || '') + '</option>').join('');
+      const defaultLabel = systemDefaultDomain ? `Padrão (${systemDefaultDomain})` : 'Padrão (URL do Painel)';
+      if (selDomain) selDomain.innerHTML = `<option value="">${defaultLabel}</option>` + (domainsList || []).map(d => '<option value="' + (d.domain || '') + '">' + (d.domain || '') + '</option>').join('');
       const selPage = document.getElementById('siteLandingPageId');
       if (selPage) selPage.innerHTML = '<option value="">— Selecione —</option>' + (pagesList || []).map(p => '<option value="' + p.id + '">' + (p.name || 'Página ' + p.id) + '</option>').join('');
     }
@@ -2934,7 +2940,11 @@
       if (!domainsList || domainsList.length === 0) {
         try {
           const r = await apiGet('/api/domains');
-          if (r) { const d = await r.json(); domainsList = d.domains || []; }
+          if (r) {
+            const d = await r.json();
+            domainsList = d.domains || [];
+            systemDefaultDomain = d.defaultDomain || null;
+          }
         } catch (e) { }
       }
       updateSiteSelectors();
@@ -2990,6 +3000,9 @@
             domainSel.appendChild(opt);
           }
         });
+        // Atualiza o texto do Padrão
+        const defaultOpt = domainSel.querySelector('option[value=""]');
+        if (defaultOpt) defaultOpt.textContent = systemDefaultDomain ? `Padrão (${systemDefaultDomain})` : 'Padrão (URL do Painel)';
       }
       if (!siteId) { block.style.display = 'none'; return; }
       block.style.display = 'block';
@@ -3323,8 +3336,10 @@
     let pagesList = [];
 
     function getLinkBaseUrl(domainHost) {
-      if (!domainHost) return getBaseUrl();
-      return (domainHost.startsWith('http') ? domainHost : 'https://' + domainHost).replace(/\/$/, '');
+      if (domainHost) return (domainHost.startsWith('http') ? domainHost : 'https://' + domainHost).replace(/\/$/, '');
+      // Se não tem domínio selecionado, usa o Default do sistema (se houver) ou a origem atual
+      if (systemDefaultDomain) return 'https://' + systemDefaultDomain;
+      return getBaseUrl();
     }
 
     function buildFullLink(site, baseUrl) {
