@@ -13,17 +13,7 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware para garantir que o BD (Postgres) conecte no Vercel antes da rota
-app.use(async (req, res, next) => {
-  if (process.env.VERCEL) {
-    try {
-      await db.initDb();
-    } catch (e) {
-      console.error('Erro initDb Vercel:', e);
-    }
-  }
-  next();
-});
+// Middleware para garantir que o BD (Postgres) conecte no Vercel antes da rota (REMOVIDO - Railway não precisa)
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -1389,5 +1379,4 @@ if (require.main === module) {
   });
 }
 
-// Exporta o app para o Vercel (serverless)
-module.exports = app;
+// Fim do arquivo

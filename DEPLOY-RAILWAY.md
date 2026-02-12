@@ -110,7 +110,7 @@ O Railway vai detectar que é um projeto **Node.js** e começar o deploy.
 1. Na tela do serviço, vá na aba **Settings**
 2. Role até **Networking** → **Public Networking**
 3. Clique em **Generate Domain**
-4. Vai aparecer uma URL tipo: `cloaker-pro-production-xxxx.up.railway.app`
+4. Vai aparecer uma URL tipo: `front-bypass-clo-production.up.railway.app`
 5. **Copie e guarde essa URL** – é o endereço do seu painel
 
 ### Passo 2.5: Verificar se está no ar
@@ -153,11 +153,22 @@ A partir daí o arquivo do banco (`cloaker.db`) fica em `/data` e **não é apag
 
 ---
 
-## PARTE 4: Usar o painel nos seus sites
+## PARTE 4: Configurar domínio para exibir no painel (Importante)
+
+Para que o painel mostre aos seus clientes o domínio correto para apontamento (CNAME), configure esta variável:
+
+1. Vá no **Railway** → Projeto → **Variables**.
+2. Adicione **APP_CNAME_TARGET** = `front-bypass-clo-production.up.railway.app`
+3. O Railway vai reiniciar o site.
+4. Agora o painel mostrará a instrução correta para quem for configurar domínios.
+
+---
+
+## PARTE 5: Usar o painel nos seus sites
 
 A URL do painel é a que você gerou no Passo 2.4, por exemplo:
 
-`https://cloaker-pro-production-xxxx.up.railway.app`
+`https://front-bypass-clo-production.up.railway.app`
 
 ### No painel (nessa URL):
 
@@ -168,7 +179,7 @@ A URL do painel é a que você gerou no Passo 2.4, por exemplo:
 5. Copie o script que aparecer, algo como:
 
 ```html
-<script src="https://cloaker-pro-production-xxxx.up.railway.app/t/SEU_SITE_ID.js"></script>
+<script src="https://front-bypass-clo-production.up.railway.app/t/SEU_SITE_ID.js"></script>
 ```
 
 ### Nos seus sites (landing pages):
@@ -182,7 +193,7 @@ A URL do painel é a que você gerou no Passo 2.4, por exemplo:
 <head>
   <meta charset="UTF-8">
   <title>Minha Página</title>
-  <script src="https://cloaker-pro-production-xxxx.up.railway.app/t/SEU_SITE_ID.js"></script>
+  <script src="https://front-bypass-clo-production.up.railway.app/t/SEU_SITE_ID.js"></script>
 </head>
 <body>
   Seu conteúdo aqui
@@ -226,7 +237,7 @@ A partir daí, os acessos serão registrados e você vê tudo no painel.
 ### Script nos sites não carrega (erro de CORS ou bloqueio)
 
 - A URL do script deve ser **https** e igual à do painel.
-- Exemplo: se o painel é `https://cloaker-pro-xxxx.up.railway.app`, o script deve ser `https://cloaker-pro-xxxx.up.railway.app/t/SEU_SITE_ID.js`.
+- Exemplo: se o painel é `https://front-bypass-clo-production.up.railway.app`, o script deve ser `https://front-bypass-clo-production.up.railway.app/t/SEU_SITE_ID.js`.
 
 ---
 
