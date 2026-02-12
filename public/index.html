@@ -1817,9 +1817,44 @@
           <span id="passwordMsg" style="margin-left: 15px; font-size: 13px;"></span>
         </div>
       </div>
-      <div class="card" id="backupCard" style="display: none;">
+
+      <div class="card glass-card">
         <div class="card-header">
-          <h3 class="card-title"><i class="ri-database-2-line"></i> Backup do banco (admin)</h3>
+          <h3 class="card-title"><i class="ri-global-line"></i> Domínio do Cloaker</h3>
+        </div>
+        <div class="card-body">
+          <p style="color: var(--text-secondary); margin-bottom: 20px;">
+            Este é o domínio principal que aparece nos seus links. Se você usa o Railway, use a URL que configurou no
+            <strong>Networking</strong> (ex: <code>https://go.meusite.com</code>).
+          </p>
+          <div class="form-group">
+            <label class="form-label">Meu domínio do Cloaker (URL completa)</label>
+            <input type="url" class="form-input" id="cloakerBaseUrl" placeholder="https://cloaker.meusite.com"
+              onchange="document.getElementById('propagationResult').style.display='none'">
+            <small style="color: var(--text-secondary); font-size: 12px;">Use HTTPS e não coloque barra no
+              final.</small>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn btn-primary" onclick="saveSettings()"><i class="ri-save-line"></i> Salvar</button>
+            <button class="btn btn-secondary" id="checkPropagationBtn" onclick="checkPropagation()"><i
+                class="ri-search-line"></i> Testar propagação</button>
+          </div>
+          <span id="settingsMsg" style="margin-left: 15px; font-size: 13px;"></span>
+
+          <div id="propagationResult"
+            style="display: none; margin-top: 20px; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div id="propagationMessage"
+              style="font-size: 14px; padding: 10px; border-radius: 6px; margin-bottom: 10px;"></div>
+            <div id="propagationDetails"
+              style="font-size: 12px; color: var(--text-secondary); font-family: monospace; word-break: break-all;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="domainCard" style="display: none;">
+        <div class="card-header">
+          <h3 class="card-title"><i class="ri-information-line"></i> Instruções para Domínios</h3>
         </div>
         <div class="card-body">
           <li><strong>No Railway (obrigatório):</strong> Projeto → seu serviço → <strong>Networking</strong> → <strong>+
@@ -1855,7 +1890,7 @@
             CNAME no DNS e escolha o domínio ao gerar o link em Meus Sites.</p>
         </div>
       </div>
-      <div class="card" id="backupCard" style="display: none;">
+      <div class="card" id="databaseCard" style="display: none;">
         <div class="card-header">
           <h3 class="card-title"><i class="ri-database-2-line"></i> Backup do banco (admin)</h3>
         </div>
@@ -3055,7 +3090,39 @@
           const el = document.getElementById('newUsername');
           if (el) el.value = data.username || '';
         }
+        const sres = await fetch('/api/settings', { credentials: 'include' });
+        if (sres.ok) {
+          const s = await sres.json();
+          const el = document.getElementById('cloakerBaseUrl');
+          if (el) el.value = s.cloaker_base_url || '';
+          baseUrlOrOrigin = (s.cloaker_base_url || '').trim() || window.location.origin;
+        }
       } catch (e) { }
+    }
+
+    async function saveSettings() {
+      const url = (document.getElementById('cloakerBaseUrl').value || '').trim();
+      const msg = document.getElementById('settingsMsg');
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ cloaker_base_url: url })
+        });
+        if (res.ok) {
+          msg.textContent = 'Salvo com sucesso!';
+          msg.style.color = 'var(--success)';
+          baseUrlOrOrigin = url || window.location.origin;
+          setTimeout(() => { msg.textContent = ''; }, 3000);
+        } else {
+          msg.textContent = 'Erro ao salvar.';
+          msg.style.color = 'var(--danger)';
+        }
+      } catch (e) {
+        msg.textContent = 'Erro de conexão.';
+        msg.style.color = 'var(--danger)';
+      }
     }
 
     async function updateUsername() {
@@ -3337,7 +3404,8 @@
 
     function getLinkBaseUrl(domainHost) {
       if (domainHost) return (domainHost.startsWith('http') ? domainHost : 'https://' + domainHost).replace(/\/$/, '');
-      // Se não tem domínio selecionado, usa o Default do sistema (se houver) ou a origem atual
+      // Hierarquia: 1. Domínio Pessoal (Settings) > 2. Sistema Default > 3. Origem Atual
+      if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) return baseUrlOrOrigin.replace(/\/$/, '');
       if (systemDefaultDomain) return 'https://' + systemDefaultDomain;
       return getBaseUrl();
     }
@@ -3636,12 +3704,13 @@
           if (currentUser && currentUser.role === 'admin') {
             var nu = document.getElementById('navUsers');
             if (nu) nu.style.display = 'block';
-            var bc = document.getElementById('backupCard');
-            if (bc) bc.style.display = 'block';
+            var dc = document.getElementById('domainCard');
+            if (dc) dc.style.display = 'block';
+            var dbc = document.getElementById('databaseCard');
+            if (dbc) dbc.style.display = 'block';
           }
         }
-        const setRes = await apiGet('/api/settings');
-        if (setRes && setRes.ok) { const s = await setRes.json(); baseUrlOrOrigin = (s.cloaker_base_url || '').trim() || window.location.origin; }
+        await loadSettings();
       } catch (e) { }
       fillCountrySelects();
       loadSites();

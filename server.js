@@ -69,8 +69,11 @@ function getBrasiliaDateRange(period) {
 // Railway: atrás de proxy HTTPS – precisa confiar no proxy para cookie e sessão
 if (isProduction) app.set('trust proxy', 1);
 
-// Só um domínio pode acessar o painel; os outros servem apenas /go/ e /t/ (links gerados)
+// Domínio principal do painel (restrição de acesso)
 const PANEL_DOMAIN = (process.env.PANEL_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').split(/[/:]/)[0];
+
+// Domínio padrão do sistema para links (opcional)
+const DEFAULT_DOMAIN = (process.env.DEFAULT_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
 function isPanelRoute(path, method) {
   if (path.startsWith('/go/') || path.startsWith('/t/')) return false;
   if (method === 'GET' && path.match(/^\/api\/config\/[^/]+$/)) return false;
@@ -83,7 +86,11 @@ app.use((req, res, next) => {
   if (!PANEL_DOMAIN) return next();
   const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
   if (!isPanelRoute(req.path, req.method)) return next(); // /go/, /t/, api/config: qualquer domínio
-  if (host === PANEL_DOMAIN) return next();
+
+  // Se o host for o PANEL_DOMAIN ou o DEFAULT_DOMAIN (quando for o mesmo), permite acesso.
+  // Caso contrário, mostra manutenção para evitar que index.html/login apareça no domínio de cloaking.
+  if (host === PANEL_DOMAIN || (DEFAULT_DOMAIN && host === DEFAULT_DOMAIN)) return next();
+
   res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').send(MAINTENANCE_HTML);
 });
 
@@ -586,7 +593,7 @@ function removeCustomDomainFromRailway(domain) {
   });
 }
 
-const DEFAULT_DOMAIN = (process.env.DEFAULT_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+// O DEFAULT_DOMAIN global já foi definido no início do arquivo
 
 // API: Domínios do usuário logado – listar, criar, excluir. Qualquer usuário gerencia seus domínios.
 app.get('/api/domains', async (req, res) => {
