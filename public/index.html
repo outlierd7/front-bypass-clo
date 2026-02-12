@@ -1529,6 +1529,46 @@
         <h2>Meus Sites</h2>
         <button class="btn btn-primary" onclick="openNewSiteModal()"><i class="ri-add-line"></i> Novo Site</button>
       </div>
+      <div class="card"
+        style="margin-bottom: 30px; border-left: 4px solid var(--accent-solid); background: linear-gradient(135deg, rgba(88, 166, 255, 0.05) 0%, rgba(0, 0, 0, 0) 100%);">
+        <div class="card-header">
+          <h3 class="card-title" style="color: var(--accent-solid);"><i class="ri-lightbulb-line"></i> Como funciona o
+            Cloaker</h3>
+        </div>
+        <div class="card-body">
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px;">
+            <div
+              style="padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
+              <div style="font-weight: 700; color: var(--accent-solid); margin-bottom: 8px;">1. Cadastre seu Site</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">Coloque o link real da sua landing page e as
+                regras de bloqueio.</p>
+            </div>
+            <div
+              style="padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
+              <div style="font-weight: 700; color: var(--accent-solid); margin-bottom: 8px;">2. Gere o Link</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">O sistema gera uma URL única (ex: /go/abc). Use
+                ela nos seus Ads.</p>
+            </div>
+            <div
+              style="padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
+              <div style="font-weight: 700; color: var(--accent-solid); margin-bottom: 8px;">3. Proteção Ativa</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">Filtramos bots e curiosos. Cliques reais vão
+                para sua landing page.</p>
+            </div>
+          </div>
+          <div
+            style="background: rgba(255, 193, 7, 0.1); padding: 20px; border-radius: 12px; border: 1px solid rgba(255, 193, 7, 0.2);">
+            <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 700;"><i class="ri-shield-check-line"></i>
+              Dica de Segurança</h4>
+            <ul style="color: var(--text-secondary); line-height: 1.6; padding-left: 20px; font-size: 13px;">
+              <li><strong>Sem Scripts:</strong> Não altere nada no seu site original.</li>
+              <li><strong>Rastreamento:</strong> Use <code>ref=...</code> no Meta Ads para blindagem máxima.</li>
+              <li><strong>UTMs:</strong> Todos os parâmetros de rastreio são preservados e repassados.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
       <div id="sitesList"></div>
     </section>
 
@@ -1670,7 +1710,8 @@
       <!-- Gerar link direto: colar URL → gerar link para usar nos Ads -->
       <div class="card" style="border: 2px solid var(--accent);">
         <div class="card-header">
-          <h3 class="card-title"><i class="ri-links-line"></i> Gerar novo link para Ads</h3>
+          <h3 class="card-title"><i class="ri-flashlight-line" style="color:var(--warning)"></i> Gerador Expresso de
+            Link</h3>
         </div>
         <div class="card-body">
           <p style="color: var(--text-secondary); margin-bottom: 15px;">Cole o link da sua landing page abaixo e clique
@@ -1693,52 +1734,34 @@
           <button class="btn btn-primary" onclick="generateLinkFromUrl()"><i class="ri-link"></i> Gerar link para
             Ads</button>
           <div id="generatedLinkBox"
-            style="display: none; margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: 10px; border: 1px solid var(--success);">
-            <div class="form-label" style="margin-bottom: 8px;">✅ Link gerado – use esse link nos seus anúncios:</div>
-            <div class="code-block" style="margin-bottom: 10px;">
-              <button class="copy-btn" id="copyGeneratedLinkBtn"
-                onclick="copyToClipboard(document.getElementById('generatedLinkText').textContent)"><i
-                  class="ri-file-copy-line"></i> Copiar</button>
-              <pre id="generatedLinkText"></pre>
+            style="display: none; margin-top: 25px; padding: 25px; background: rgba(0, 217, 165, 0.05); border-radius: 16px; border: 1px dashed var(--success); animation: slideUp 0.4s ease-out;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <div class="form-label" style="margin-bottom: 0; color: var(--success); font-weight: 700;">
+                <i class="ri-checkbox-circle-line"></i> Link Gerado com Sucesso!
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="resetQuickGenerator()"
+                style="padding: 6px 12px; font-size: 11px;">Novo Link</button>
             </div>
-            <p style="color: var(--text-secondary); font-size: 12px;">Não precisa colocar nenhum script no seu site. Só
-              use esse link como URL de destino nos Ads.</p>
+            <div class="code-block"
+              style="background: var(--bg-primary); border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);">
+              <button class="copy-btn" id="copyGeneratedLinkBtn"
+                onclick="copyToClipboard(document.getElementById('generatedLinkText').textContent)">
+                <i class="ri-file-copy-line"></i> Copiar
+              </button>
+              <pre id="generatedLinkText"
+                style="color: var(--accent-solid); font-weight: 600; white-space: pre-wrap; word-break: break-all;"></pre>
+            </div>
+            <div
+              style="margin-top: 15px; display: flex; gap: 10px; align-items: flex-start; color: var(--text-secondary); font-size: 12px;">
+              <i class="ri-information-line" style="margin-top: 2px;"></i>
+              <p>Este site foi criado automaticamente em "Meus Sites". Você já pode usá-lo nos seus anúncios.</p>
+            </div>
           </div>
         </div>
       </div>
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title"><i class="ri-information-line"></i> Como funciona</h3>
-        </div>
-        <div class="card-body">
-          <p style="margin-bottom: 20px; line-height: 1.8;">
-            <strong>1.</strong> Em "Meus Sites", cadastre seu site e coloque a <strong>URL da sua landing page</strong>
-            (o link real do seu site).<br>
-            <strong>2.</strong> O sistema gera um <strong>novo link</strong> para você (ex:
-            <code>https://seu-painel.up.railway.app/go/abc12xyz</code>).<br>
-            <strong>3.</strong> Use esse novo link como <strong>URL de destino</strong> nos seus anúncios (Meta Ads,
-            Google Ads, etc.).<br>
-            <strong>4.</strong> Quem clicar no anúncio passa primeiro pelo nosso servidor: se for permitido (ex: mobile,
-            Brasil), vai para seu site; se for bloqueado (desktop, bot, etc.), vai para a URL de redirecionamento (ex:
-            Google).
-          </p>
-          <div style="background: var(--bg-secondary); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="margin-bottom: 10px;">📌 Importante</h4>
-            <ul style="color: var(--text-secondary); line-height: 1.8; padding-left: 20px;">
-              <li><strong>Não precisa colocar nenhum script no seu site.</strong> Só usar o link gerado nos Ads.</li>
-              <li>Cada site tem seu próprio link e configurações (país, bloqueio de desktop, etc.).</li>
-              <li><strong>Parâmetro de rastreamento:</strong> use o parâmetro <code>ref=...</code> no Meta Ads
-                (Rastreamento → Parâmetros de URL) para que só quem clicar no anúncio seja permitido; quem acessar o
-                link sem esse parâmetro será bloqueado.</li>
-              <li>Os parâmetros do anúncio (UTM, fbclid, etc.) são repassados para sua landing page.</li>
-              <li>Todos os acessos (permitidos e bloqueados) aparecem no painel.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title"><i class="ri-link"></i> Seu link para usar nos Ads</h3>
+          <h3 class="card-title"><i class="ri-folder-open-line"></i> Visualizador de Links Gerados</h3>
         </div>
         <div class="card-body">
           <p style="margin-bottom: 15px; color: var(--text-secondary);">Selecione um site e o domínio para ver e copiar
@@ -2986,12 +3009,25 @@
       updateScriptCode();
     }
 
+    function resetQuickGenerator() {
+      document.getElementById('quickTargetUrl').value = '';
+      document.getElementById('quickSiteName').value = '';
+      document.getElementById('generatedLinkBox').style.display = 'none';
+    }
+
     async function generateLinkFromUrl() {
-      const url = (document.getElementById('quickTargetUrl').value || '').trim();
+      const urlEl = document.getElementById('quickTargetUrl');
+      const url = (urlEl.value || '').trim();
       if (!url) { alert('Cole a URL da sua landing page no campo acima.'); return; }
       const name = (document.getElementById('quickSiteName').value || '').trim() || ('Landing ' + new Date().toLocaleDateString('pt-BR'));
       const domainSelect = document.getElementById('quickDomainSelect');
       const selectedDomain = domainSelect ? domainSelect.value : '';
+
+      const btn = event.currentTarget;
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ri-loader-4-line" style="animation: spin 1s linear infinite;"></i> Gerando...';
+
       try {
         const res = await fetch('/api/sites', {
           method: 'POST',
@@ -3009,13 +3045,23 @@
         const site = await res.json();
         const baseUrl = getLinkBaseUrl(selectedDomain || '');
         const link = buildFullLink(site, baseUrl);
+
         await loadSites();
+
         document.getElementById('generatedLinkText').textContent = link;
         document.getElementById('generatedLinkBox').style.display = 'block';
-        document.getElementById('scriptSiteSelector').value = site.site_id;
-        updateScriptCode();
+
+        // Selecionar o site no visualizador abaixo
+        const siteSel = document.getElementById('scriptSiteSelector');
+        if (siteSel) {
+          siteSel.value = site.site_id;
+          updateScriptCode();
+        }
       } catch (e) {
         alert('Erro ao gerar link. Tente novamente.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
       }
     }
 
