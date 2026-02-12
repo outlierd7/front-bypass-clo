@@ -2531,14 +2531,14 @@
             <div style="margin-bottom: 8px;">
               <label class="form-label" style="margin-bottom: 4px; font-size: 12px;">Usar domínio:</label>
               <select class="form-select" id="domainSelect-${s.site_id}" style="max-width: 280px;" onchange="updateSiteLinkDisplays('${s.site_id}')">
-                <option value="" ${!s.selected_domain ? 'selected' : ''}>Padrão</option>
+                <option value="" ${!s.selected_domain ? 'selected' : ''}>${getDefaultDomainLabel()}</option>
                 ${(domainsList || []).map(d => '<option value="' + (d.domain || '') + '" ' + (s.selected_domain === d.domain ? 'selected' : '') + '>' + (d.domain || '') + '</option>').join('')}
               </select>
             </div>
             <div class="form-label" style="margin: 10px 0 4px; font-size: 12px;">Domínio gerado</div>
             <div class="code-block" style="font-size: 12px; padding: 10px;">
               <button class="copy-btn" style="padding: 4px 8px; font-size: 10px;" onclick="copySiteLinkBase('${s.site_id}')"><i class="ri-file-copy-line"></i> Copiar</button>
-              <span id="linkBase-${s.site_id}">${s.link_code ? buildLinkBase(s, s.selected_domain ? getLinkBaseUrl(s.selected_domain) : getBaseUrl()) : '—'}</span>
+              <span id="linkBase-${s.site_id}">${s.link_code ? buildLinkBase(s, getLinkBaseUrl(s.selected_domain || '')) : '—'}</span>
             </div>
             <div class="form-label" style="margin: 10px 0 4px; font-size: 12px;">Parâmetros</div>
             <div class="code-block" style="font-size: 12px; padding: 10px;">
@@ -2591,7 +2591,7 @@
     }
 
     function editSite(siteId) {
-      const site = sites.find(s => s.site_id === siteId);
+      const site = sites.find(s => s.site_id == siteId);
       if (!site) return;
       document.getElementById('siteModalTitle').textContent = 'Editar Site';
       document.getElementById('editSiteId').value = siteId;
@@ -2667,7 +2667,7 @@
         if (!requireRef) data.required_ref_token = '';
         else if (regenerateRefOnSave) data.regenerate_ref_token = true;
         else {
-          const site = sites.find(s => s.site_id === siteId);
+          const site = sites.find(s => s.site_id == siteId);
           if (site && !(site.required_ref_token && site.required_ref_token.trim())) data.regenerate_ref_token = true;
         }
       }
@@ -3007,7 +3007,7 @@
         });
         if (!res.ok) throw new Error('Erro ao criar');
         const site = await res.json();
-        const baseUrl = selectedDomain ? getLinkBaseUrl(selectedDomain) : getBaseUrl();
+        const baseUrl = getLinkBaseUrl(selectedDomain || '');
         const link = buildFullLink(site, baseUrl);
         await loadSites();
         document.getElementById('generatedLinkText').textContent = link;
@@ -3037,11 +3037,11 @@
         });
         // Atualiza o texto do Padrão
         const defaultOpt = domainSel.querySelector('option[value=""]');
-        if (defaultOpt) defaultOpt.textContent = systemDefaultDomain ? `Padrão (${systemDefaultDomain})` : 'Padrão (URL do Painel)';
+        if (defaultOpt) defaultOpt.textContent = getDefaultDomainLabel();
       }
       if (!siteId) { block.style.display = 'none'; return; }
       block.style.display = 'block';
-      const site = sites.find(s => s.site_id === siteId);
+      const site = sites.find(s => s.site_id == siteId);
       const domainHost = domainSel ? domainSel.value : '';
       const base = getLinkBaseUrl(domainHost);
       if (site && site.link_code) {
@@ -3407,7 +3407,18 @@
       // Hierarquia: 1. Domínio Pessoal (Settings) > 2. Sistema Default > 3. Origem Atual
       if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) return baseUrlOrOrigin.replace(/\/$/, '');
       if (systemDefaultDomain) return 'https://' + systemDefaultDomain;
-      return getBaseUrl();
+      return window.location.origin;
+    }
+
+    function getDefaultDomainLabel() {
+      // Retorna o que o link "Padrão" vai usar na prática
+      if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) {
+        return `Padrão (${baseUrlOrOrigin.replace(/^https?:\/\//, '')})`;
+      }
+      if (systemDefaultDomain) {
+        return `Padrão (${systemDefaultDomain})`;
+      }
+      return 'Padrão (URL do Painel)';
     }
 
     function buildFullLink(site, baseUrl) {
@@ -3442,7 +3453,7 @@
           credentials: 'include',
           body: JSON.stringify({ selected_domain: domain || '' })
         });
-        const site = sites.find(s => s.site_id === siteId);
+        const site = sites.find(s => s.site_id == siteId);
         if (site) site.selected_domain = domain || null;
       } catch (e) {
         console.error('Erro ao salvar domínio selecionado:', e);
@@ -3451,7 +3462,7 @@
 
     function updateSiteLinkDisplays(siteId) {
       saveSelectedDomain(siteId, document.getElementById('domainSelect-' + siteId)?.value || '');
-      const site = sites.find(s => s.site_id === siteId);
+      const site = sites.find(s => s.site_id == siteId);
       const baseUrl = getLinkBaseUrl(document.getElementById('domainSelect-' + siteId)?.value || '');
       const baseEl = document.getElementById('linkBase-' + siteId);
       const paramsEl = document.getElementById('linkParams-' + siteId);
@@ -3460,7 +3471,7 @@
     }
 
     function copySiteLinkBase(siteId) {
-      const site = sites.find(s => s.site_id === siteId);
+      const site = sites.find(s => s.site_id == siteId);
       if (!site || !site.link_code) { alert('Edite o site e salve a URL do seu site para gerar o link.'); return; }
       const baseUrl = getLinkBaseUrl(document.getElementById('domainSelect-' + siteId)?.value || '');
       const base = buildLinkBase(site, baseUrl);
@@ -3468,7 +3479,7 @@
     }
 
     function copySiteLinkParams(siteId) {
-      const site = sites.find(s => s.site_id === siteId);
+      const site = sites.find(s => s.site_id == siteId);
       if (!site) return;
       const params = buildLinkParams(site);
       if (params) copyToClipboard(params);
@@ -3476,7 +3487,7 @@
     }
 
     function copySiteLink(siteId) {
-      const site = sites.find(s => s.site_id === siteId);
+      const site = sites.find(s => s.site_id == siteId);
       if (!site || !site.link_code) { alert('Edite o site e salve a URL do seu site para gerar o link.'); return; }
       const sel = document.getElementById('domainSelect-' + siteId);
       const domainHost = sel ? sel.value : '';
@@ -3580,6 +3591,7 @@
         const data = await res.json();
         const list = data.domains || (Array.isArray(data) ? data : []);
         domainsList = list;
+        systemDefaultDomain = data.defaultDomain || null;
         cnameTargetCache = data.cnameTarget || '';
         if (ph) ph.textContent = cnameTargetCache || '(cada domínio mostra o valor na tabela abaixo)';
 
@@ -3587,7 +3599,7 @@
         const quickDomainSelect = document.getElementById('quickDomainSelect');
         if (quickDomainSelect) {
           const currentVal = quickDomainSelect.value;
-          quickDomainSelect.innerHTML = '<option value="">Padrão</option>' + list.map(d => `<option value="${d.domain || ''}">${d.domain || ''}</option>`).join('');
+          quickDomainSelect.innerHTML = `<option value="">${getDefaultDomainLabel()}</option>` + list.map(d => `<option value="${d.domain || ''}">${d.domain || ''}</option>`).join('');
           quickDomainSelect.value = currentVal || '';
         }
 
