@@ -143,10 +143,10 @@ async function initPg() {
     `);
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)
-    `).catch(() => {});
-    try { await client.query('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) {}
-    try { await client.query('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) {}
-    try { await client.query('ALTER TABLE sites ADD COLUMN landing_page_id INTEGER'); } catch (e) {}
+    `).catch(() => { });
+    try { await client.query('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) { }
+    try { await client.query('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) { }
+    try { await client.query('ALTER TABLE sites ADD COLUMN landing_page_id INTEGER'); } catch (e) { }
     await client.query(`
       CREATE TABLE IF NOT EXISTS landing_pages (
         id SERIAL PRIMARY KEY,
@@ -155,13 +155,13 @@ async function initPg() {
         html_content TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
-    `).catch(() => {});
+    `).catch(() => { });
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_visitors_site_created ON visitors(site_id, created_at)
-    `).catch(() => {});
+    `).catch(() => { });
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_visitors_created ON visitors(created_at)
-    `).catch(() => {});
+    `).catch(() => { });
 
     const r = await client.query("SELECT 1 FROM settings WHERE key = 'cloaker_base_url' LIMIT 1");
     if (r.rows.length === 0) {
@@ -227,14 +227,14 @@ async function initSqlite() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  try { db.run('ALTER TABLE sites ADD COLUMN link_code TEXT'); } catch (e) {}
-  try { db.run('ALTER TABLE sites ADD COLUMN target_url TEXT'); } catch (e) {}
-  try { db.run('ALTER TABLE sites ADD COLUMN user_id INTEGER'); } catch (e) {}
-  try { db.run('ALTER TABLE sites ADD COLUMN required_ref_token TEXT'); } catch (e) {}
-  try { db.run("ALTER TABLE sites ADD COLUMN block_behavior TEXT DEFAULT 'redirect'"); } catch (e) {}
-  try { db.run('ALTER TABLE sites ADD COLUMN default_link_params TEXT'); } catch (e) {}
-  try { db.run('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) {}
-  try { db.run('ALTER TABLE sites ADD COLUMN landing_page_id INTEGER'); } catch (e) {}
+  try { db.run('ALTER TABLE sites ADD COLUMN link_code TEXT'); } catch (e) { }
+  try { db.run('ALTER TABLE sites ADD COLUMN target_url TEXT'); } catch (e) { }
+  try { db.run('ALTER TABLE sites ADD COLUMN user_id INTEGER'); } catch (e) { }
+  try { db.run('ALTER TABLE sites ADD COLUMN required_ref_token TEXT'); } catch (e) { }
+  try { db.run("ALTER TABLE sites ADD COLUMN block_behavior TEXT DEFAULT 'redirect'"); } catch (e) { }
+  try { db.run('ALTER TABLE sites ADD COLUMN default_link_params TEXT'); } catch (e) { }
+  try { db.run('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) { }
+  try { db.run('ALTER TABLE sites ADD COLUMN landing_page_id INTEGER'); } catch (e) { }
   db.run(`
     CREATE TABLE IF NOT EXISTS landing_pages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -313,14 +313,14 @@ async function initSqlite() {
   `);
 
   db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT DEFAULT 'user', status TEXT DEFAULT 'active', cloaker_base_url TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-  try { db.run("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'"); } catch (e) {}
-  try { db.run('ALTER TABLE users ADD COLUMN cloaker_base_url TEXT'); } catch (e) {}
+  try { db.run("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'"); } catch (e) { }
+  try { db.run('ALTER TABLE users ADD COLUMN cloaker_base_url TEXT'); } catch (e) { }
   db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
-  try { db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('cloaker_base_url', '')"); } catch (e) {}
+  try { db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('cloaker_base_url', '')"); } catch (e) { }
   db.run(`CREATE TABLE IF NOT EXISTS allowed_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, domain TEXT NOT NULL, description TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-  try { db.run('ALTER TABLE allowed_domains ADD COLUMN user_id INTEGER'); } catch (e) {}
-  try { db.run('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) {}
-  try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)'); } catch (e) {}
+  try { db.run('ALTER TABLE allowed_domains ADD COLUMN user_id INTEGER'); } catch (e) { }
+  try { db.run('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) { }
+  try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_domains_user_domain ON allowed_domains(user_id, domain)'); } catch (e) { }
 
   const firstAdmin = db.prepare("SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1");
   firstAdmin.bind(['admin']);
@@ -329,10 +329,10 @@ async function initSqlite() {
     firstAdmin.free();
     db.run('UPDATE allowed_domains SET user_id = ? WHERE user_id IS NULL', [id]);
   } else {
-    try { firstAdmin.free(); } catch (e) {}
+    try { firstAdmin.free(); } catch (e) { }
   }
-  try { db.run('CREATE INDEX IF NOT EXISTS idx_visitors_site_created ON visitors(site_id, created_at)'); } catch (e) {}
-  try { db.run('CREATE INDEX IF NOT EXISTS idx_visitors_created ON visitors(created_at)'); } catch (e) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_visitors_site_created ON visitors(site_id, created_at)'); } catch (e) { }
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_visitors_created ON visitors(created_at)'); } catch (e) { }
 
   const DB_PATH_FOR_SAVE = DB_PATH;
   const saveDb = () => {
@@ -348,45 +348,45 @@ async function initSqlite() {
   console.log('✅ Banco SQLite inicializado');
 }
 
-function sqliteRun(sql, params) {
+function sqliteRun(sql, params = []) {
   try {
     db.run(sql, params);
     if (db.saveDb) db.saveDb();
     return true;
   } catch (e) {
-    console.error('SQL Error:', e.message);
-    return false;
+    console.error('SQL Run Error:', e.message, 'SQL:', sql);
+    throw e;
   }
 }
 
-function sqliteGet(sql, params) {
+function sqliteGet(sql, params = []) {
+  let stmt;
   try {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    if (stmt.step()) {
-      const row = stmt.getAsObject();
-      stmt.free();
-      return row;
-    }
+    stmt = db.prepare(sql);
+    if (params && params.length > 0) stmt.bind(params);
+    const row = stmt.step() ? stmt.getAsObject() : null;
     stmt.free();
-    return null;
+    return row;
   } catch (e) {
-    console.error('SQL Error:', e.message);
-    return null;
+    if (stmt) try { stmt.free(); } catch (ee) { }
+    console.error('SQL Get Error:', e.message, 'SQL:', sql);
+    throw e;
   }
 }
 
-function sqliteAll(sql, params) {
+function sqliteAll(sql, params = []) {
+  let stmt;
   try {
-    const stmt = db.prepare(sql);
-    if (params.length > 0) stmt.bind(params);
+    stmt = db.prepare(sql);
+    if (params && params.length > 0) stmt.bind(params);
     const results = [];
     while (stmt.step()) results.push(stmt.getAsObject());
     stmt.free();
     return results;
   } catch (e) {
-    console.error('SQL Error:', e.message);
-    return [];
+    if (stmt) try { stmt.free(); } catch (ee) { }
+    console.error('SQL All Error:', e.message, 'SQL:', sql);
+    throw e;
   }
 }
 

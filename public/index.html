@@ -1731,7 +1731,7 @@
               <option value="">Padrão</option>
             </select>
           </div>
-          <button class="btn btn-primary" onclick="generateLinkFromUrl()"><i class="ri-link"></i> Gerar link para
+          <button class="btn btn-primary" onclick="generateLinkFromUrl(event)"><i class="ri-link"></i> Gerar link para
             Ads</button>
           <div id="generatedLinkBox"
             style="display: none; margin-top: 25px; padding: 25px; background: rgba(0, 217, 165, 0.05); border-radius: 16px; border: 1px dashed var(--success); animation: slideUp 0.4s ease-out;">
@@ -3015,7 +3015,7 @@
       document.getElementById('generatedLinkBox').style.display = 'none';
     }
 
-    async function generateLinkFromUrl() {
+    async function generateLinkFromUrl(event) {
       const urlEl = document.getElementById('quickTargetUrl');
       const url = (urlEl.value || '').trim();
       if (!url) { alert('Cole a URL da sua landing page no campo acima.'); return; }
@@ -3023,10 +3023,13 @@
       const domainSelect = document.getElementById('quickDomainSelect');
       const selectedDomain = domainSelect ? domainSelect.value : '';
 
-      const btn = event.currentTarget;
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i class="ri-loader-4-line" style="animation: spin 1s linear infinite;"></i> Gerando...';
+      const btn = (event && event.currentTarget) ? event.currentTarget : null;
+      let originalHtml = '';
+      if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line" style="animation: spin 1s linear infinite;"></i> Gerando...';
+      }
 
       try {
         const res = await fetch('/api/sites', {
@@ -3041,8 +3044,19 @@
             selected_domain: selectedDomain || null
           })
         });
-        if (!res.ok) throw new Error('Erro ao criar');
-        const site = await res.json();
+
+        let site;
+        const text = await res.text();
+        try {
+          site = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Servidor retornou resposta inválida: ' + text.substring(0, 100));
+        }
+
+        if (!res.ok) {
+          throw new Error(site.error || 'Erro ao criar site (' + res.status + ')');
+        }
+
         const baseUrl = getLinkBaseUrl(selectedDomain || '');
         const link = buildFullLink(site, baseUrl);
 
@@ -3058,10 +3072,13 @@
           updateScriptCode();
         }
       } catch (e) {
-        alert('Erro ao gerar link. Tente novamente.');
+        console.error('Erro ao gerar link:', e);
+        alert('Erro ao gerar link: ' + e.message);
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
       }
     }
 
