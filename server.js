@@ -912,14 +912,23 @@ app.post('/api/sites', async (req, res) => {
   const behavior = block_behavior === 'page' ? 'page' : (block_behavior === 'embed' ? 'embed' : 'redirect');
   const lpId = behavior === 'page' && landing_page_id ? parseInt(landing_page_id, 10) : null;
   const selDomain = (selected_domain || '').trim() || null;
+  const siteDomain = (domain || '').trim() || null;
+  const siteName = (name || '').trim() || 'Sem nome';
+  const redirUrl = (redirect_url || 'https://www.google.com/').trim();
+
   try {
     const defaultParams = (req.body.default_link_params || '').trim() || null;
-    await db.run(`INSERT INTO sites (site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, default_link_params, allowed_countries, block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, required_ref_token, landing_page_id, selected_domain, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, ?, ?, datetime('now'))`,
-      [siteId, linkCode, userId, name, domain, target, redirect_url || 'https://www.google.com/', behavior, defaultParams, countries, refToken, lpId, selDomain]);
+    await db.run(`INSERT INTO sites (
+        site_id, link_code, user_id, name, domain, target_url, redirect_url, block_behavior, default_link_params, allowed_countries, 
+        block_desktop, block_facebook_library, block_bots, block_vpn, block_devtools, 
+        required_ref_token, landing_page_id, selected_domain, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?, ?, ?, datetime('now'))`,
+      [siteId, linkCode, userId, siteName, siteDomain, target, redirUrl, behavior, defaultParams, countries, refToken, lpId, selDomain]);
     const site = await db.get('SELECT * FROM sites WHERE site_id = ?', [siteId]);
     res.json(site);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Erro ao criar site:', error);
+    res.status(500).json({ error: error.message || 'Erro interno ao criar site' });
   }
 });
 
