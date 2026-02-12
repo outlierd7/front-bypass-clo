@@ -74,7 +74,9 @@ const PANEL_DOMAIN = (process.env.PANEL_DOMAIN || '').trim().toLowerCase().repla
 
 // Domínio padrão do sistema para links (opcional)
 const DEFAULT_DOMAIN = (process.env.DEFAULT_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-function isPanelRoute(path, method) {
+function isPanelRoute(path, method, host) {
+  // Se o host começar com isis., nunca é rota de painel (sempre cloaking)
+  if (host && host.startsWith('isis.')) return false;
   if (path.startsWith('/go/') || path.startsWith('/t/')) return false;
   if (method === 'GET' && path.match(/^\/api\/config\/[^/]+$/)) return false;
   return true;
@@ -87,14 +89,18 @@ app.use(async (req, res, next) => {
   const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
 
   // /go/, /t/, api/config: funcionam em qualquer host (cloaking)
-  if (!isPanelRoute(req.path, req.method)) return next();
+  if (!isPanelRoute(req.path, req.method, host)) return next();
 
-  // Se o host for o PANEL_DOMAIN ou o DEFAULT_DOMAIN, permite acesso ao painel.
+  // Se o host for o PANEL_DOMAIN ou o DEFAULT_DOMAIN ou app.[user].[domain], permite acesso ao painel.
   if (host === PANEL_DOMAIN || (DEFAULT_DOMAIN && host === DEFAULT_DOMAIN)) return next();
 
-  // BYOD (Pink Rabbit Logic): Se o host estiver em allowed_domains, permite acesso ao painel.
+  // BYOD/Pink Rabbit: app.dominio.com ou subdomínio de sistema
+  if (host.startsWith('app.')) return next();
+
+  // BYOD (Pink Rabbit Logic): Se o host (ou o domínio raiz sem isis.) estiver em allowed_domains, permite acesso ao painel.
   try {
-    const customMatch = await db.get('SELECT 1 FROM allowed_domains WHERE domain = ? LIMIT 1', [host]);
+    const rawDomain = host.startsWith('isis.') ? host.slice(5) : host;
+    const customMatch = await db.get('SELECT 1 FROM allowed_domains WHERE domain = ? LIMIT 1', [rawDomain]);
     if (customMatch) return next();
   } catch (e) {
     console.error('Erro ao verificar domínio BYOD no middleware:', e.message);
@@ -609,8 +615,9 @@ app.get('/api/domains', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Não autorizado' });
   const userId = req.session.userId;
   const list = await db.all('SELECT id, domain, description, created_at, railway_cname_target FROM allowed_domains WHERE user_id = ? OR user_id IS NULL ORDER BY domain ASC', [userId]);
+  const user = await db.get('SELECT slug FROM users WHERE id = ?', [userId]);
   const cnameTarget = getCnameTarget(req);
-  res.json({ domains: list, cnameTarget, defaultDomain: DEFAULT_DOMAIN || null });
+  res.json({ domains: list, cnameTarget, defaultDomain: DEFAULT_DOMAIN || null, userSlug: user ? user.slug : null });
 });
 
 app.post('/api/domains', async (req, res) => {

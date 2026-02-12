@@ -315,6 +315,15 @@ async function initSqlite() {
   db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT DEFAULT 'user', status TEXT DEFAULT 'active', cloaker_base_url TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
   try { db.run("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'"); } catch (e) { }
   try { db.run('ALTER TABLE users ADD COLUMN cloaker_base_url TEXT'); } catch (e) { }
+  try { db.run('ALTER TABLE users ADD COLUMN slug TEXT'); } catch (e) { }
+  try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_slug ON users(slug)'); } catch (e) { }
+
+  // Migração: Popular slugs para quem não tem
+  const usersWithoutSlug = db.all ? await db.all('SELECT id, username FROM users WHERE slug IS NULL') : [];
+  for (const u of usersWithoutSlug) {
+    const slug = u.username.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user' + u.id;
+    await db.run('UPDATE users SET slug = ? WHERE id = ?', [slug, u.id]);
+  }
   db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
   try { db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('cloaker_base_url', '')"); } catch (e) { }
   db.run(`CREATE TABLE IF NOT EXISTS allowed_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, domain TEXT NOT NULL, description TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);

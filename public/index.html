@@ -1986,7 +1986,7 @@
                 <div
                   style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px; margin-bottom: 6px;">
                   <span style="color: var(--text-secondary);">Nome:</span> <code
-                    style="color: var(--secondary);">cl</code> ou <code style="color: var(--secondary);">@</code>
+                    style="color: var(--secondary);">isis</code>
                 </div>
                 <div
                   style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px; cursor: pointer; border: 1px dashed var(--success);"
@@ -2010,8 +2010,8 @@
               <div
                 style="background: rgba(var(--primary-rgb), 0.1); padding: 10px; border-radius: 8px; font-size: 12px; color: var(--primary); display: flex; align-items: flex-start; gap: 8px;">
                 <i class="ri-lightbulb-line" style="font-size: 16px;"></i>
-                <span><strong>Dica:</strong> Se usar Cloudflare, desative a "Nuvem Laranja" (Proxy) para o primeiro
-                  teste se necessário.</span>
+                <span><strong>Dica:</strong> Se usar Cloudflare, desative a "Nuvem Laranja" (Proxy) se houver problemas
+                  de SSL. O host deve ser sempre <code>isis</code>.</span>
               </div>
             </div>
 
@@ -3483,33 +3483,39 @@
     let cnameTargetCache = '';
     let domainsList = [];
     let pagesList = [];
+    let currentUserSlug = '';
 
     function getLinkBaseUrl(domainHost) {
-      if (domainHost) return (domainHost.startsWith('http') ? domainHost : 'https://' + domainHost).replace(/\/$/, '');
+      if (domainHost) {
+        let host = domainHost.startsWith('http') ? domainHost.replace(/^https?:\/\//, '') : domainHost;
+        if (!host.startsWith('isis.')) host = 'isis.' + host;
+        return 'https://' + host.replace(/\/$/, '');
+      }
 
-      // Inteligência BYOD: Se estamos acessando pelo domínio customizado, ele vira o padrão automático
       const currentHost = window.location.hostname.toLowerCase();
-      const isInCatalog = domainsList.some(d => d.domain && d.domain.toLowerCase() === currentHost);
-      if (isInCatalog) return window.location.origin;
+      // Se estamos num subdomínio de sistema (isis.slug.domain), mantém a origem
+      if (currentHost.startsWith('isis.') && currentUserSlug && currentHost.includes(`.${currentUserSlug}.`)) return window.location.origin;
 
-      // Hierarquia: 1. Domínio Pessoal (Settings) > 2. Sistema Default > 3. Origem Atual
-      if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) return baseUrlOrOrigin.replace(/\/$/, '');
-      if (systemDefaultDomain) return 'https://' + systemDefaultDomain;
+      // Hierarquia Profissional
+      if (systemDefaultDomain) {
+        const prefix = currentUserSlug ? `isis.${currentUserSlug}.` : 'isis.';
+        return 'https://' + prefix + systemDefaultDomain.replace(/^isis\./, '');
+      }
       return window.location.origin;
     }
 
     function getDefaultDomainLabel() {
-      // Inteligência BYOD: Mostrar o domínio atual no label se for um domínio customizado
-      const currentHost = window.location.hostname.toLowerCase();
-      const isInCatalog = domainsList.some(d => d.domain && d.domain.toLowerCase() === currentHost);
-      if (isInCatalog) return `Padrão (${currentHost})`;
+      // Prioridade Profissional "isis"
+      if (systemDefaultDomain) {
+        const prefix = currentUserSlug ? `isis.${currentUserSlug}.` : 'isis.';
+        return `Padrão (${prefix}${systemDefaultDomain.replace(/^isis\./, '')})`;
+      }
 
-      // Retorna o que o link "Padrão" vai usar na prática
+      const currentHost = window.location.hostname.toLowerCase();
+      if (currentHost.startsWith('isis.')) return `Padrão (${currentHost})`;
+
       if (baseUrlOrOrigin && baseUrlOrOrigin !== window.location.origin) {
         return `Padrão (${baseUrlOrOrigin.replace(/^https?:\/\//, '')})`;
-      }
-      if (systemDefaultDomain) {
-        return `Padrão (${systemDefaultDomain})`;
       }
       return 'Padrão (URL do Painel)';
     }
@@ -3686,6 +3692,7 @@
         domainsList = list;
         systemDefaultDomain = data.defaultDomain || null;
         cnameTargetCache = data.cnameTarget || '';
+        currentUserSlug = data.userSlug || '';
         const placeholders = document.querySelectorAll('#cnameTargetPlaceholder');
         placeholders.forEach(ph => {
           ph.textContent = cnameTargetCache || '(cada domínio mostra o valor na tabela abaixo)';
