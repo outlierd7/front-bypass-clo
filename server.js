@@ -312,11 +312,16 @@ app.get('/api/settings/check-propagation', async (req, res) => {
 });
 
 // API: Solicitar conta (público – cria usuário com status pending)
-app.post('/api/signup', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password || username.trim().length < 2 || password.length < 6) return res.status(400).json({ error: 'Usuário (mín. 2 caracteres) e senha (mín. 6 caracteres) obrigatórios' });
+app.post('/api/solicitar', async (req, res) => {
+  const { username, password, passwordConfirm } = req.body || {};
+  if (!username || !password || !passwordConfirm) return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+  if (username.trim().length < 2) return res.status(400).json({ error: 'O ID do Agente deve ter pelo menos 2 caracteres' });
+  if (password.length < 6) return res.status(400).json({ error: 'A Chave Secreta deve ter pelo menos 6 caracteres' });
+  if (password !== passwordConfirm) return res.status(400).json({ error: 'As Chaves Secretas não coincidem' });
+
   const exists = await db.get('SELECT id FROM users WHERE username = ?', [username.trim()]);
-  if (exists) return res.status(400).json({ error: 'Este usuário já está cadastrado.' });
+  if (exists) return res.status(400).json({ error: 'Este ID de Agente já está cadastrado.' });
+
   const hash = bcrypt.hashSync(password, 10);
   try {
     await db.run('INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)', [username.trim(), hash, 'user', 'pending']);
