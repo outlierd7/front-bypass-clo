@@ -137,10 +137,10 @@ app.use(express.static('public'));
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) return next();
   if (req.path === '/login' || req.path.startsWith('/go/') || req.path.startsWith('/t/')) return next();
-  if (req.path === '/api/login' || req.path === '/api/logout' || req.path === '/api/setup' || req.path === '/api/config/') return next();
+  if (req.path === '/api/login' || req.path === '/api/logout' || req.path === '/api/setup' || req.path === '/api/config/' || req.path === '/api/solicitar') return next();
   if (req.path.startsWith('/api/') && req.method === 'GET' && req.path === '/api/config/' + (req.params && req.params.siteId ? req.params.siteId : '')) return next();
   if (req.path.startsWith('/api/')) {
-    if (req.path === '/api/login' || req.path === '/api/setup') return next();
+    if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/solicitar') return next();
     return res.status(401).json({ error: 'Não autorizado' });
   }
   return res.redirect('/login');
@@ -158,7 +158,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/go/') || req.path.startsWith('/t/')) return next();
   if (req.path.match(/^\/api\/config\//) && req.method === 'GET') return next();
   if (req.path === '/' && req.method === 'GET' && (!req.session || !req.session.userId)) return res.redirect('/login');
-  if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/setup/check' || req.path === '/api/setup/promote-first-admin' || req.path === '/api/signup') return next();
+  if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/setup/check' || req.path === '/api/setup/promote-first-admin' || req.path === '/api/signup' || req.path === '/api/solicitar') return next();
   if (req.path.startsWith('/api/') && !req.session?.userId) return res.status(401).json({ error: 'Não autorizado' });
   next();
 });
