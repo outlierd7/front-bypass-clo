@@ -432,11 +432,22 @@
       if (tab === 'login') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('loginForm').classList.add('active');
+        window.history.replaceState(null, null, '/login');
       } else {
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('signupForm').classList.add('active');
+        window.history.replaceState(null, null, '/solicitar');
       }
     }
+
+    // Auto-switch based on URL
+    window.addEventListener('DOMContentLoaded', () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === '/register' || path === '/cadastro' || path === '/solicitar' || hash === '#solicitar') {
+        switchTab('signup');
+      }
+    });
 
     // Logic Elements
     var loginMsg = document.getElementById('loginMsg');

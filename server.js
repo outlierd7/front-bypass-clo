@@ -163,8 +163,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Página de login
-app.get('/login', (req, res) => {
+// Página de login / solicitar
+app.get(['/login', '/register', '/cadastro'], (req, res) => {
   if (req.session && req.session.userId) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
