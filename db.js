@@ -126,6 +126,7 @@ async function initPg() {
         role TEXT DEFAULT 'user',
         status TEXT DEFAULT 'active',
         cloaker_base_url TEXT,
+        slug TEXT UNIQUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
@@ -147,6 +148,17 @@ async function initPg() {
     try { await client.query('ALTER TABLE allowed_domains ADD COLUMN railway_cname_target TEXT'); } catch (e) { }
     try { await client.query('ALTER TABLE sites ADD COLUMN selected_domain TEXT'); } catch (e) { }
     try { await client.query('ALTER TABLE sites ADD COLUMN landing_page_id INTEGER'); } catch (e) { }
+    try { await client.query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'"); } catch (e) { }
+    try { await client.query('ALTER TABLE users ADD COLUMN cloaker_base_url TEXT'); } catch (e) { }
+    try { await client.query('ALTER TABLE users ADD COLUMN slug TEXT'); } catch (e) { }
+    try { await client.query('CREATE UNIQUE INDEX idx_users_slug ON users(slug)'); } catch (e) { }
+
+    // Migração: Popular slugs para quem não tem (Postgres)
+    const usersWithoutSlug = (await client.query('SELECT id, username FROM users WHERE slug IS NULL')).rows;
+    for (const u of usersWithoutSlug) {
+      const slug = u.username.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user' + u.id;
+      await client.query('UPDATE users SET slug = $1 WHERE id = $2', [slug, u.id]);
+    }
     await client.query(`
       CREATE TABLE IF NOT EXISTS landing_pages (
         id SERIAL PRIMARY KEY,
