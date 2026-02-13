@@ -383,12 +383,18 @@
       <!-- SIGNUP -->
       <form id="signupForm" class="auth-form">
         <div class="form-group">
-          <input type="text" class="form-input" id="signupUsername" required minlength="2" placeholder="NEW AGENT ID">
+          <input type="text" class="form-input" id="signupUsername" required minlength="2" placeholder="NOVO USUÁRIO">
           <i class="ri-user-add-line input-icon"></i>
         </div>
         <div class="form-group">
-          <input type="password" class="form-input" id="signupPassword" required minlength="6" placeholder="SECRET KEY">
+          <input type="password" class="form-input" id="signupPassword" required minlength="6"
+            placeholder="CHAVE SECRETA">
           <i class="ri-key-2-line input-icon"></i>
+        </div>
+        <div class="form-group">
+          <input type="password" class="form-input" id="signupPasswordConfirm" required minlength="6"
+            placeholder="CONFIRMAR CHAVE SECRETA">
+          <i class="ri-shield-keyhole-line input-icon"></i>
         </div>
         <button type="submit" class="btn">Enviar Requisição</button>
         <div id="signupMsg" class="msg"></div>
@@ -477,10 +483,30 @@
 
     document.getElementById('signupForm').onsubmit = async (e) => {
       e.preventDefault();
-      signupMsg.className = 'msg'; signupMsg.textContent = 'Encrypting request...'; signupMsg.style.display = 'block';
-      const res = await api('/api/signup', { username: document.getElementById('signupUsername').value, password: document.getElementById('signupPassword').value });
-      if (res.ok) { signupMsg.className = 'msg success'; signupMsg.textContent = 'REQUEST LOGGED.'; e.target.reset(); }
-      else { signupMsg.className = 'msg error'; signupMsg.textContent = res.data.error || 'ERROR'; }
+      const password = document.getElementById('signupPassword').value;
+      const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+
+      if (password !== passwordConfirm) {
+        signupMsg.className = 'msg error';
+        signupMsg.textContent = 'As Chaves Secretas não coincidem.';
+        signupMsg.style.display = 'block';
+        return;
+      }
+
+      signupMsg.className = 'msg'; signupMsg.textContent = 'Enviando requisição de acesso...'; signupMsg.style.display = 'block';
+      const res = await api('/api/solicitar', {
+        username: document.getElementById('signupUsername').value,
+        password: password,
+        passwordConfirm: passwordConfirm
+      });
+      if (res.ok) {
+        signupMsg.className = 'msg success';
+        signupMsg.textContent = 'AGUARDANDO APROVAÇÃO TÁTICA.';
+        e.target.reset();
+      } else {
+        signupMsg.className = 'msg error';
+        signupMsg.textContent = res.data.error || 'FALHA NA REQUISIÇÃO';
+      }
     };
 
     document.getElementById('setupForm').onsubmit = async (e) => {
