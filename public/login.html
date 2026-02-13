@@ -396,7 +396,7 @@
             placeholder="CONFIRMAR CHAVE SECRETA">
           <i class="ri-shield-keyhole-line input-icon"></i>
         </div>
-        <button type="submit" class="btn">Enviar Requisição</button>
+        <button type="submit" class="btn">SOLICITAR ACESSO</button>
         <div id="signupMsg" class="msg"></div>
         <p style="text-align:center; font-size:10px; color:#555; margin-top:15px; letter-spacing:0.5px;">ESTE ACESSO É
           MONITORADO.</p>
@@ -512,11 +512,13 @@
       });
       if (res.ok) {
         signupMsg.className = 'msg success';
-        signupMsg.textContent = 'AGUARDANDO APROVAÇÃO TÁTICA.';
+        signupMsg.textContent = 'AGUARDANDO APROVAÇÃO TÁTICA. SUA SOLICITAÇÃO FOI REGISTRADA.';
+        signupMsg.style.display = 'block';
         e.target.reset();
       } else {
         signupMsg.className = 'msg error';
         signupMsg.textContent = res.data.error || 'FALHA NA REQUISIÇÃO';
+        signupMsg.style.display = 'block';
       }
     };
 

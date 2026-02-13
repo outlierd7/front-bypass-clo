@@ -164,7 +164,7 @@ app.use((req, res, next) => {
 });
 
 // Página de login / solicitar
-app.get(['/login', '/register', '/cadastro'], (req, res) => {
+app.get(['/login', '/register'], (req, res) => {
   if (req.session && req.session.userId) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
