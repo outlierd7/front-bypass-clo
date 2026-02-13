@@ -75,8 +75,6 @@ const PANEL_DOMAIN = (process.env.PANEL_DOMAIN || '').trim().toLowerCase().repla
 // Domínio padrão do sistema para links (opcional)
 const DEFAULT_DOMAIN = (process.env.DEFAULT_DOMAIN || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
 function isPanelRoute(path, method, host) {
-  // Se o host começar com isis., nunca é rota de painel (sempre cloaking)
-  if (host && host.startsWith('isis.')) return false;
   if (path.startsWith('/go/') || path.startsWith('/t/')) return false;
   if (method === 'GET' && path.match(/^\/api\/config\/[^/]+$/)) return false;
   return true;
