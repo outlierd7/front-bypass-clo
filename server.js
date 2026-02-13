@@ -83,7 +83,6 @@ function isPanelRoute(path, method, host) {
 // Assim quem acessar só o domínio (ex.: https://iniictranfi.sbs/) não vê nada útil — só /go/ e /t/ funcionam.
 const MAINTENANCE_HTML = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Em manutenção</title><style>body{font-family:system-ui,sans-serif;background:#1a1a1a;color:#eee;margin:0;padding:2rem;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;}h1{font-size:1.5rem;}</style></head><body><div><h1>Em manutenção</h1><p>Volte mais tarde.</p></div></body></html>';
 app.use(async (req, res, next) => {
-  if (!PANEL_DOMAIN) return next();
   const host = (req.hostname || (req.get('host') || '').split(':')[0] || '').toLowerCase();
 
   // PROFISSIONAL: isis. ou isis-* são SEMPRE cloaking. O Painel NUNCA abre neles.
@@ -96,6 +95,8 @@ app.use(async (req, res, next) => {
   if (isIsisHost) {
     return res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').send(MAINTENANCE_HTML);
   }
+
+  if (!PANEL_DOMAIN) return next();
 
   // Se o host for o PANEL_DOMAIN, DEFAULT_DOMAIN ou subdomínios administrativos (painel., app.), permite acesso.
   if (host === PANEL_DOMAIN || (DEFAULT_DOMAIN && host === DEFAULT_DOMAIN)) return next();
