@@ -97,11 +97,8 @@
     }
 
     // C. Teste Humanidade (Plugins & Languages)
-    // Browsers reais têm plugins (mesmo que lista vazia, o objeto existe) e linguagens definidas
-    if (!_0x.nav.languages || _0x.nav.languages.length === 0) {
-      // Aviso: Alguns browsers privacy-focused escondem isso, mas bots quase sempre falham aqui
-      return { check: true, reason: 'No Languages Defined' };
-    }
+    // REMOVIDO: Alguns browsers (Brave, Tor, Privacy exts) escondem languages/plugins.
+    // Bloquear por isso causa perda de tráfego real. Vamos focar apenas no WebDriver.
 
     // D. Teste de Resolução (Headless Check)
     if (window.outerWidth === 0 && window.outerHeight === 0) {
@@ -262,7 +259,12 @@
 
   async function getGeo() {
     try {
-      const r = await fetch('https://ipapi.co/json/');
+      // Timeout de 1.5s - Se a API demorar, assumimos "Unknown" e liberamos o acesso.
+      // Performance > Geo Blocking.
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 1500);
+      const r = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+      clearTimeout(id);
       return await r.json();
     } catch { return {}; }
   }
