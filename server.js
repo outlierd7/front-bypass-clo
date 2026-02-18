@@ -1481,7 +1481,7 @@ app.get('/go/:code', async (req, res) => {
       [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebookParams]).catch(e => console.error('Visit log error:', e));
 
     if (wasBlocked) {
-      let blockUrl = site.redirect_url || 'https://www.google.com/';
+      let blockUrl = (site.redirect_url || 'https://www.google.com/').trim();
       if (blockUrl && !blockUrl.match(/^https?:\/\//) && !blockUrl.startsWith('/')) {
         blockUrl = 'https://' + blockUrl;
       }
@@ -1489,19 +1489,21 @@ app.get('/go/:code', async (req, res) => {
       if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
 
       // Silent Redirect for Blocked Users
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.writeHead(302, { 'Location': blockUrl });
       res.end();
       return;
     }
 
     // Silent Redirect (Premium UX - No 'Found. Redirecting to' body)
-    let dest = site.target_url;
+    let dest = (site.target_url || '').trim();
     if (dest && !dest.match(/^https?:\/\//) && !dest.startsWith('/')) {
       dest = 'https://' + dest;
     }
     const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
     if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
 
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.writeHead(302, { 'Location': dest });
     res.end();
     return;
