@@ -121,26 +121,19 @@ O Railway vai detectar que é um projeto **Node.js** e começar o deploy.
 
 ---
 
-## PARTE 3: Persistir o banco de dados (opcional mas recomendado)
+## 💾 3. Configurar Banco de Dados (Blindado)
 
-Sem isso, o banco é apagado a cada novo deploy. Com **Volume**, os dados ficam salvos.
+O sistema agora usa **PostgreSQL** para garantir que você **nunca perca dados**, mesmo se reiniciar o servidor.
 
-### Passo 3.1: Criar o Volume
-
-1. No projeto no Railway, clique no seu **serviço** (o mesmo que você configurou)
-2. Vá na aba **Settings**
-3. Role até **Volumes**
-4. Clique em **Add Volume**
-5. **Mount Path:** digite exatamente: `/data`
-6. Clique em **Add**
-
-### Passo 3.2: Ligar o Volume ao serviço
-
-1. Ainda em **Settings**, em **Variables** (variáveis de ambiente)
-2. Clique em **Add Variable** ou **New Variable**
-3. Nome: `RAILWAY_VOLUME_MOUNT_PATH`
-4. Valor: `/data`
-5. Salve
+1.  No painel do Railway, clique em **+ New** -> **Database** -> **Add PostgreSQL**.
+2.  Aguarde o banco ser criado.
+3.  Clique no banco **PostgreSQL** criado -> aba **Connect**.
+4.  Copie a **DATABASE_URL** (começa com `postgresql://...`).
+5.  Vá no seu projeto do **Cloaker** -> aba **Variables**.
+6.  Adicione uma nova variável:
+    -   **Variable Name:** `DATABASE_URL`
+    -   **Value:** (Cole a URL que você copiou)
+7.  O Railway vai reiniciar o projeto automaticamente. Pronto! Seu banco está blindado. 🛡️
 
 ### Passo 3.3: Fazer um novo deploy
 
