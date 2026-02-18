@@ -1474,7 +1474,11 @@ app.get('/go/:code', async (req, res) => {
       const blockUrl = site.redirect_url || 'https://www.google.com/';
       if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
       if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
-      return res.redirect(302, blockUrl);
+
+      // Silent Redirect for Blocked Users
+      res.writeHead(302, { 'Location': blockUrl });
+      res.end();
+      return;
     }
 
     // Silent Redirect (Premium UX - No 'Found. Redirecting to' body)
