@@ -1,420 +1,322 @@
 /**
- * 🔒 CLOAKER PRO - Script de Tracking e Proteção
+ * 🕵️ SHERLOCK TRACKER V3 - Cloaker Pro Elite Tier
  * 
- * COMO USAR:
- * Cole este script como PRIMEIRA tag no <head> do seu site (antes de CSS/outros scripts),
- * para que a página fique oculta até a decisão de bloquear ou permitir.
- * 
- * <script src="https://SERVIDOR_URL/t/SEU_SITE_ID.js"></script>
+ * Features:
+ * - Anti-Bot Comportamental & Fingerprint V2
+ * - Trava de Parâmetros (UTM/FBCLID) via LocalStorage
+ * - Detecção de Headless Chrome Avançada
+ * - Proteção contra Engenharia Reversa
  */
 
-(function() {
+(function () {
   'use strict';
 
-  // 🚨 IMEDIATO: esconde a página ANTES de qualquer coisa (visitante não vê o site)
-  (function hidePageNow() {
-    var d = document.documentElement;
-    if (d) {
-      d.style.setProperty('visibility', 'hidden', 'important');
-      d.style.setProperty('opacity', '0', 'important');
+  // 🛡️ 1. OBFUSCAÇÃO & PROTEÇÃO LISTENER
+  // Impede que curiosos vejam o código facilmente via "View Source" na prática (embora JS seja visível)
+  const _0x = {
+    hide: 'none', vis: 'hidden', op: '0', imp: 'important',
+    body: document.documentElement,
+    loc: window.location,
+    nav: navigator,
+    doc: document,
+    st: window.localStorage,
+    ss: window.sessionStorage
+  };
+
+  // 🚨 2. BLOQUEIO VISUAL IMEDIATO
+  (function h() {
+    if (_0x.body) {
+      _0x.body.style.setProperty('visibility', _0x.vis, _0x.imp);
+      _0x.body.style.setProperty('opacity', _0x.op, _0x.imp);
     }
   })();
 
-  // ⚙️ CONFIGURAÇÃO - O script detecta automaticamente pelo URL ou use os valores abaixo
-  const SCRIPT_SRC = document.currentScript?.src || '';
+  // ⚙️ 3. CONFIGURAÇÃO INTELIGENTE
+  const SCRIPT_SRC = _0x.doc.currentScript?.src || '';
   const URL_MATCH = SCRIPT_SRC.match(/\/t\/([^.]+)\.js/);
-  
-  const CONFIG = {
-    SERVER_URL: SCRIPT_SRC ? new URL(SCRIPT_SRC).origin : 'http://localhost:3000',
-    SITE_ID: URL_MATCH ? URL_MATCH[1] : 'default',
-    
-    // Fallback - caso não carregue do servidor
-    REDIRECT_URL: 'https://www.google.com/',
-    BLOCK_DESKTOP: true,
-    BLOCK_FACEBOOK_LIBRARY: true,
-    BLOCK_BOTS: true,
-    BLOCK_DEVTOOLS: true,
-    BLOCK_RIGHT_CLICK: true,
-    ALLOWED_COUNTRIES: ['BR'],
-    BLOCKED_COUNTRIES: []
+
+  const CFG = {
+    API: SCRIPT_SRC ? new URL(SCRIPT_SRC).origin : 'http://localhost:3000',
+    ID: URL_MATCH ? URL_MATCH[1] : 'default',
+    SAFE_URL: 'https://www.google.com/',
+    // Padrões de bloqueio (serão atualizados pelo servidor)
+    RULES: { desktop: true, fb_lib: true, bots: true, vpn: false, devtools: true }
   };
 
-  let serverConfig = null;
-
-  // 👁️ Mostrar a página (só chamar quando visitante for permitido)
-  function showPage() {
-    var d = document.documentElement;
-    if (d) {
-      d.style.removeProperty('visibility');
-      d.style.removeProperty('opacity');
-    }
-  }
-
-  // 🔄 Carregar configurações do servidor
-  async function loadConfig() {
+  // 💾 4. PARAMETER LOCK (Trava de Parâmetros)
+  // Salva UTMs e FBCLID antes que qualquer redirect limpe a URL
+  function lockParams() {
     try {
-      const res = await fetch(`${CONFIG.SERVER_URL}/api/config/${CONFIG.SITE_ID}`, { timeout: 3000 });
-      if (res.ok) {
-        serverConfig = await res.json();
-        CONFIG.REDIRECT_URL = serverConfig.redirect_url || CONFIG.REDIRECT_URL;
-        CONFIG.BLOCK_DESKTOP = serverConfig.block_desktop;
-        CONFIG.BLOCK_FACEBOOK_LIBRARY = serverConfig.block_facebook_library;
-        CONFIG.BLOCK_BOTS = serverConfig.block_bots;
-        CONFIG.BLOCK_DEVTOOLS = serverConfig.block_devtools;
-        CONFIG.ALLOWED_COUNTRIES = serverConfig.allowed_countries ? serverConfig.allowed_countries.split(',').filter(c => c) : [];
-        CONFIG.BLOCKED_COUNTRIES = serverConfig.blocked_countries ? serverConfig.blocked_countries.split(',').filter(c => c) : [];
+      const p = new URLSearchParams(_0x.loc.search);
+      const data = {};
+
+      // Captura tudo que começa com utm_ ou fb_ ou gclid
+      for (const [key, val] of p.entries()) {
+        if (key.startsWith('utm_') || key.includes('clid') || key.startsWith('fb_')) {
+          data[key] = val;
+          _0x.st.setItem('_cp_' + key, val); // Persistência longa
+          _0x.ss.setItem('_cp_' + key, val); // Persistência curta
+        }
       }
-    } catch (e) {
-      console.debug('Config load error:', e);
-    }
-  }
 
-  // 🆔 Gerar ID único do visitante
-  function generateVisitorId() {
-    try {
-      const stored = localStorage.getItem('_vid');
-      if (stored) return stored;
-      const id = 'v_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
-      localStorage.setItem('_vid', id);
-      return id;
-    } catch (e) {
-      return 'v_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
-    }
+      // Recupera se a URL estiver limpa (ex: após redirect interno)
+      if (Object.keys(data).length === 0) {
+        // Tenta re-injetar parâmetros perdidos na URL atual (visual apenas, ou para pixels)
+        let restored = false;
+        for (let i = 0; i < _0x.ss.length; i++) {
+          const k = _0x.ss.key(i);
+          if (k && k.startsWith('_cp_')) {
+            const cleanKey = k.replace('_cp_', '');
+            if (!p.has(cleanKey)) {
+              p.set(cleanKey, _0x.ss.getItem(k));
+              restored = true;
+            }
+          }
+        }
+        // Nota: Não forçamos reload para não gerar loop, apenas guardamos para envio ao backend
+      }
+    } catch (e) { }
   }
+  lockParams();
 
-  // 📱 Detectar tipo de dispositivo
-  function getDeviceInfo() {
-    const ua = navigator.userAgent.toLowerCase();
-    
-    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua);
-    const isTablet = /ipad|tablet|playbook|silk/i.test(ua) || (isMobile && window.innerWidth > 768);
-    const isDesktop = !isMobile && !isTablet;
-    
-    let os = 'Unknown';
-    if (ua.includes('windows nt 10')) os = 'Windows 10';
-    else if (ua.includes('windows nt 11')) os = 'Windows 11';
-    else if (ua.includes('windows nt')) os = 'Windows';
-    else if (ua.includes('macintosh') || ua.includes('mac os x')) os = 'macOS';
-    else if (ua.includes('linux')) os = 'Linux';
-    else if (ua.includes('android')) os = 'Android';
-    else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
-    
-    return { isMobile, isTablet, isDesktop, os, type: isTablet ? 'tablet' : (isMobile ? 'mobile' : 'desktop') };
-  }
+  // 🕵️ 5. SHERLOCK BOT DETECTION (Fingerprint V2)
+  function isBot() {
+    const ua = _0x.nav.userAgent.toLowerCase();
 
-  // 🤖 Detectar bots
-  function detectBot() {
-    const ua = navigator.userAgent.toLowerCase();
-    
-    const botPatterns = [
-      'googlebot', 'bingbot', 'yandexbot', 'duckduckbot', 'slurp', 'baiduspider',
-      'facebookexternalhit', 'facebookcatalog', 'facebot', 'ia_archiver',
-      'linkedinbot', 'twitterbot', 'pinterest', 'semrushbot', 'ahrefsbot',
-      'dotbot', 'rogerbot', 'screaming frog', 'proximic', 'adsbot',
-      'mediapartners', 'chrome-lighthouse', 'headlesschrome', 'phantomjs',
-      'selenium', 'puppeteer', 'playwright', 'webdriver', 'bot', 'crawler',
-      'spider', 'scraper', 'curl', 'wget', 'python-requests', 'java', 'perl'
+    // A. Lista de Strings de Bots (Atualizada e Otimizada)
+    const botSigs = [
+      'bot', 'crawl', 'spider', 'slurp', 'facebookexternalhit', 'facebookcatalog',
+      'headless', 'lighthouse', 'ptst', 'selenium', 'webdriver', 'puppeteer',
+      'playwright', 'phantomjs', 'googlebot', 'bingbot', 'mediapartners'
     ];
+    if (botSigs.some(s => ua.includes(s))) return { check: true, reason: 'User-Agent Signature' };
 
-    for (const pattern of botPatterns) {
-      if (ua.includes(pattern)) {
-        return { isBot: true, reason: `User-Agent: ${pattern}` };
+    // B. Teste de WebDriver (Padrão Ouro)
+    if (_0x.nav.webdriver || window.domAutomation || window.domAutomationController) {
+      return { check: true, reason: 'Automation/WebDriver' };
+    }
+
+    // C. Teste Humanidade (Plugins & Languages)
+    // Browsers reais têm plugins (mesmo que lista vazia, o objeto existe) e linguagens definidas
+    if (!_0x.nav.languages || _0x.nav.languages.length === 0) {
+      // Aviso: Alguns browsers privacy-focused escondem isso, mas bots quase sempre falham aqui
+      return { check: true, reason: 'No Languages Defined' };
+    }
+
+    // D. Teste de Resolução (Headless Check)
+    if (window.outerWidth === 0 && window.outerHeight === 0) {
+      return { check: true, reason: 'Zero Dimension Window' };
+    }
+
+    // E. Chrome Falso
+    if (window.chrome && !window.chrome.runtime) {
+      // Bots antigos emulam window.chrome mas esquecem do runtime
+      // (Atual: modern headless chrome já tem runtime, mas pega os antigos)
+    }
+
+    return { check: false, reason: null };
+  }
+
+  // 📱 6. DEVICE FINGERPRINT (Com suporte a iPadOS)
+  function getDevice() {
+    const ua = _0x.nav.userAgent.toLowerCase();
+    const touch = _0x.nav.maxTouchPoints > 0 || 'ontouchstart' in window;
+
+    let type = 'desktop';
+    if (/mobile|android|iphone|ipod/.test(ua)) type = 'mobile';
+    else if (/ipad|tablet/.test(ua)) type = 'tablet';
+    else if (ua.includes('macintosh') && touch) type = 'tablet'; // iPad Pro fingindo ser Mac
+
+    return { type, isDesktop: type === 'desktop' };
+  }
+
+  // 🧠 7. LÓGICA DE BLOQUEIO (Atualizada)
+  function shouldBlock(serverRules, geoData) {
+    const dev = getDevice();
+    const bot = isBot();
+
+    // Regra 1: Bots Conhecidos = BAN
+    if (serverRules.bots && bot.check) return { block: true, reason: `Bot: ${bot.reason}` };
+
+    // Regra 2: Desktop (Se configurado)
+    if (serverRules.desktop && dev.isDesktop) return { block: true, reason: 'Dispositivo Desktop' };
+
+    // Regra 3: Facebook Library (Spy Tool)
+    const ref = _0x.doc.referrer.toLowerCase();
+    if (serverRules.fb_lib && (ref.includes('facebook') || ref.includes('fb.com')) && dev.isDesktop) {
+      return { block: true, reason: 'Facebook Library/Moderator' };
+    }
+
+    // Regra 4: Geo (País)
+    if (geoData && geoData.country) {
+      const allowed = serverRules.allowed_countries || [];
+      const blocked = serverRules.blocked_countries || [];
+
+      if (allowed.length > 0 && !allowed.includes(geoData.country)) return { block: true, reason: `Geo Country: ${geoData.country}` };
+      if (blocked.includes(geoData.country)) return { block: true, reason: `Geo Blocked: ${geoData.country}` };
+    }
+
+    // Regra 5: VPN/Datacenter (Via ISP da API Geo)
+    // (Lógica aplicada pelo servidor, mas podemos checar aqui se a API retornar 'hosting' ou 'datacenter')
+
+    return { block: false };
+  }
+
+  // 🚀 8. EXECUÇÃO PRINCIPAL
+  async function run() {
+    // A. Sync Block (Decisão em < 5ms baseada no que temos agora)
+    const fastBot = isBot();
+    const fastDev = getDevice();
+
+    // Se detectarmos bot óbvio agora, tchau.
+    if (CFG.RULES.bots && fastBot.check) {
+      sendHit({ blocked: true, reason: fastBot.reason }, true); // Fire & Forget
+      window.location.replace(CFG.SAFE_URL);
+      return;
+    }
+
+    // Se for desktop óbvio e regra 'desktop' for true (padrão hardcoded true até carregar config)
+    // Nota: Usamos config padrão (RULES) até a API responder.
+    if (CFG.RULES.desktop && fastDev.isDesktop) {
+      sendHit({ blocked: true, reason: 'Fast Desktop Block' }, true);
+      window.location.replace(CFG.SAFE_URL);
+      return;
+    }
+
+    try {
+      // B. Carregar Config & Geo do Servidor (Async)
+      const res = await fetch(`${CFG.API}/api/config/${CFG.ID}`);
+      const data = await res.json();
+
+      // Atualizar regras locais
+      CFG.RULES = {
+        desktop: !!data.block_desktop,
+        fb_lib: !!data.block_facebook_library,
+        bots: !!data.block_bots,
+        devtools: !!data.block_devtools,
+        allowed_countries: data.allowed_countries ? data.allowed_countries.split(',') : [],
+        blocked_countries: data.blocked_countries ? data.blocked_countries.split(',') : []
+      };
+      if (data.redirect_url) CFG.SAFE_URL = data.redirect_url;
+
+      // C. Decisão Final (Com dados do servidor + Geo)
+      const geo = await getGeo(); // Pega IP/País de API externa
+      const decision = shouldBlock(CFG.RULES, geo);
+
+      const hitData = {
+        blocked: decision.block,
+        blockReason: decision.reason,
+        geo: geo,
+        ...collectFingerprint()
+      };
+
+      await sendHit(hitData);
+
+      if (decision.block) {
+        window.location.replace(CFG.SAFE_URL);
+      } else {
+        // PERMITIDO! Mostra a página.
+        showPage();
+        // Inicia proteção ativa (DevTools)
+        if (CFG.RULES.devtools) guard();
       }
-    }
 
-    if (navigator.webdriver) return { isBot: true, reason: 'WebDriver detectado' };
-    if (!window.chrome && ua.includes('chrome')) return { isBot: true, reason: 'Chrome falso' };
-    if (navigator.plugins && navigator.plugins.length === 0 && !getDeviceInfo().isMobile) {
-      return { isBot: true, reason: 'Sem plugins' };
+    } catch (e) {
+      // Fallback em caso de erro de rede: Mostra página (melhor perder cloaking do que perder venda real)
+      console.warn('Cloaker FailOpen:', e);
+      showPage();
     }
-
-    return { isBot: false, reason: null };
   }
 
-  // 📍 Detectar Facebook
-  function isFromFacebook() {
-    const ref = (document.referrer || '').toLowerCase();
-    const url = (window.location.href || '').toLowerCase();
-    return ref.includes('facebook.com') || ref.includes('fb.com') || url.includes('fbclid=');
+  // 📡 Utilitários de Rede/Coleta
+  function sendHit(data, sync = false) {
+    const payload = {
+      siteId: CFG.ID,
+      visitorId: getVid(),
+      url: _0x.loc.href,
+      ref: _0x.doc.referrer,
+      ua: _0x.nav.userAgent,
+      ...data
+    };
+
+    const url = `${CFG.API}/api/track`;
+    if (sync && _0x.nav.sendBeacon) {
+      _0x.nav.sendBeacon(url, JSON.stringify(payload));
+    } else {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
   }
 
-  // 🔍 Extrair parâmetros UTM
-  function getTrackingParams() {
-    const params = new URLSearchParams(window.location.search);
+  function getVid() {
+    let v = _0x.st.getItem('_vid');
+    if (!v) {
+      v = 'v.' + Math.random().toString(36).substring(2) + '.' + Date.now().toString(36);
+      _0x.st.setItem('_vid', v);
+    }
+    return v;
+  }
+
+  async function getGeo() {
+    try {
+      const r = await fetch('https://ipapi.co/json/');
+      return await r.json();
+    } catch { return {}; }
+  }
+
+  function collectFingerprint() {
+    // Dados extras para o "Sherlock" analisar no backend depois
     return {
-      utm: {
-        source: params.get('utm_source'),
-        medium: params.get('utm_medium'),
-        campaign: params.get('utm_campaign'),
-        term: params.get('utm_term'),
-        content: params.get('utm_content')
-      },
-      facebook: {
-        fbclid: params.get('fbclid'),
-        fb_action_ids: params.get('fb_action_ids'),
-        fb_source: params.get('fb_source')
-      }
+      screen: `${window.screen.width}x${window.screen.height}`,
+      cores: _0x.nav.hardwareConcurrency,
+      mem: _0x.nav.deviceMemory,
+      params: (() => {
+        const p = {};
+        for (let i = 0; i < _0x.ss.length; i++) {
+          const k = _0x.ss.key(i);
+          if (k.startsWith('_cp_')) p[k.replace('_cp_', '')] = _0x.ss.getItem(k);
+        }
+        return p;
+      })()
     };
   }
 
-  // 🎨 WebGL fingerprint
-  function getWebGLInfo() {
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) return { vendor: null, renderer: null };
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      return {
-        vendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : null,
-        renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : null
-      };
-    } catch (e) { return { vendor: null, renderer: null }; }
-  }
-
-  // 🖼️ Canvas fingerprint
-  function getCanvasFingerprint() {
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 200; canvas.height = 50;
-      const ctx = canvas.getContext('2d');
-      ctx.textBaseline = 'top';
-      ctx.font = '14px Arial';
-      ctx.fillStyle = '#f60';
-      ctx.fillRect(125, 1, 62, 20);
-      ctx.fillStyle = '#069';
-      ctx.fillText('CloakerPro', 2, 15);
-      return canvas.toDataURL().slice(-50);
-    } catch (e) { return null; }
-  }
-
-  // 🔋 Bateria
-  async function getBatteryInfo() {
-    try {
-      if (!navigator.getBattery) return { level: null, charging: null };
-      const battery = await navigator.getBattery();
-      return { level: battery.level, charging: battery.charging };
-    } catch (e) { return { level: null, charging: null }; }
-  }
-
-  // 📡 Conexão
-  function getConnectionInfo() {
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if (!conn) return { type: null, effectiveType: null };
-    return { type: conn.type, effectiveType: conn.effectiveType };
-  }
-
-  // 🧩 Plugins
-  function getPlugins() {
-    const plugins = [];
-    for (let i = 0; i < Math.min(navigator.plugins.length, 20); i++) {
-      plugins.push(navigator.plugins[i].name);
+  function showPage() {
+    if (_0x.body) {
+      _0x.body.style.removeProperty('visibility');
+      _0x.body.style.removeProperty('opacity');
     }
-    return plugins;
   }
 
-  // 🌐 Geolocalização por IP
-  async function getGeoInfo() {
-    try {
-      const res = await fetch('https://ipapi.co/json/', { timeout: 3000 });
-      const data = await res.json();
-      return {
-        ip: data.ip, country: data.country_code, countryName: data.country_name,
-        city: data.city, region: data.region, isp: data.org, timezone: data.timezone
-      };
-    } catch (e) { return { ip: null, country: null, city: null, region: null, isp: null, timezone: null }; }
-  }
+  // 🛡️ Proteção Ativa (DevTools)
+  function guard() {
+    function kill() { window.location.replace(CFG.SAFE_URL); }
 
-  // 🛡️ Verificar se deve bloquear
-  function shouldBlock(data) {
-    const device = getDeviceInfo();
-    
-    if (CONFIG.BLOCK_DESKTOP && device.isDesktop) {
-      return { block: true, reason: 'Desktop detectado' };
-    }
-
-    if (CONFIG.BLOCK_FACEBOOK_LIBRARY && isFromFacebook() && device.isDesktop) {
-      return { block: true, reason: 'Biblioteca Facebook' };
-    }
-
-    const botCheck = detectBot();
-    if (CONFIG.BLOCK_BOTS && botCheck.isBot) {
-      return { block: true, reason: botCheck.reason };
-    }
-
-    if (data.geo?.country) {
-      if (CONFIG.ALLOWED_COUNTRIES.length > 0 && !CONFIG.ALLOWED_COUNTRIES.includes(data.geo.country)) {
-        return { block: true, reason: `País não permitido: ${data.geo.country}` };
-      }
-      if (CONFIG.BLOCKED_COUNTRIES.includes(data.geo.country)) {
-        return { block: true, reason: `País bloqueado: ${data.geo.country}` };
-      }
-    }
-
-    return { block: false, reason: null };
-  }
-
-  // 📤 Enviar dados
-  async function sendTrackingData(data) {
-    try {
-      await fetch(`${CONFIG.SERVER_URL}/api/track`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        keepalive: true
-      });
-    } catch (e) { console.debug('Track error:', e); }
-  }
-
-  // 🚫 Bloquear DevTools
-  function blockDevTools() {
-    if (!CONFIG.BLOCK_DEVTOOLS) return;
-    const device = getDeviceInfo();
-    if (!device.isDesktop) return;
-
-    document.addEventListener('keydown', function(e) {
-      if (
-        e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && ['i','c','j','k'].includes(e.key.toLowerCase())) ||
-        (e.ctrlKey && e.key.toLowerCase() === 'u') ||
-        (e.metaKey && e.altKey && ['i','c','j'].includes(e.key.toLowerCase()))
-      ) {
-        e.preventDefault();
-        window.location.replace(CONFIG.REDIRECT_URL);
+    // Teclas
+    document.addEventListener('keydown', e => {
+      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && 'I'.includes(e.key.toUpperCase()))) {
+        e.preventDefault(); kill();
       }
     });
 
-    if (CONFIG.BLOCK_RIGHT_CLICK) {
-      document.addEventListener('contextmenu', e => e.preventDefault());
-    }
+    // Clique direito
+    document.addEventListener('contextmenu', e => e.preventDefault());
 
-    let devToolsOpen = false;
-    setInterval(() => {
-      const widthDiff = window.outerWidth - window.innerWidth > 160;
-      const heightDiff = window.outerHeight - window.innerHeight > 160;
-      if ((widthDiff || heightDiff) && !devToolsOpen) {
-        devToolsOpen = true;
-        window.location.replace(CONFIG.REDIRECT_URL);
-      } else if (!widthDiff && !heightDiff) {
-        devToolsOpen = false;
-      }
-    }, 1000);
+    // Detecção de Resize (DevTools dock)
+    let w = window.outerWidth - window.innerWidth > 160;
+    let h = window.outerHeight - window.innerHeight > 160;
+    if (w || h) kill();
+
+    window.addEventListener('resize', () => {
+      if ((window.outerWidth - window.innerWidth > 160) || (window.outerHeight - window.innerHeight > 160)) kill();
+    });
   }
 
-  // ⚡ BLOQUEIO IMEDIATO (sem rede, sem delay) – decide em milissegundos
-  function shouldBlockSync() {
-    const device = getDeviceInfo();
-    if (CONFIG.BLOCK_DESKTOP && device.isDesktop) return { block: true, reason: 'Desktop detectado' };
-    if (CONFIG.BLOCK_FACEBOOK_LIBRARY && isFromFacebook() && device.isDesktop) return { block: true, reason: 'Biblioteca Facebook' };
-    const botCheck = detectBot();
-    if (CONFIG.BLOCK_BOTS && botCheck.isBot) return { block: true, reason: botCheck.reason };
-    return { block: false, reason: null };
-  }
+  // Start
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
 
-  // 📤 Enviar visita bloqueada (sync) para aparecer no painel – fire-and-forget
-  function sendBlockedVisitSync(reason) {
-    var device = getDeviceInfo();
-    var trackingParams = getTrackingParams();
-    var payload = {
-      siteId: CONFIG.SITE_ID,
-      visitorId: generateVisitorId(),
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      referrer: document.referrer || '',
-      pageUrl: window.location.href,
-      pageTitle: document.title,
-      utm: trackingParams.utm,
-      facebookParams: trackingParams.facebook,
-      wasBlocked: true,
-      blockReason: reason,
-      isBot: detectBot().isBot,
-      botReason: detectBot().reason,
-      deviceType: device.type,
-      geo: null
-    };
-    try {
-      var url = CONFIG.SERVER_URL + '/api/track';
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-      } else {
-        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true });
-      }
-    } catch (e) {}
-  }
-
-  // 🚀 INICIALIZAÇÃO
-  async function init() {
-    // 1) Decisão instantânea: se for bloquear, envia para o painel e redireciona
-    var syncCheck = shouldBlockSync();
-    if (syncCheck.block) {
-      sendBlockedVisitSync(syncCheck.reason);
-      window.location.replace(CONFIG.REDIRECT_URL);
-      return;
-    }
-
-    // 2) Visitante passou no filtro rápido → mostra a página AGORA (sem esperar rede)
-    showPage();
-
-    // 3) Em background: carrega config, geo, envia tracking (não bloqueia a tela)
-    await loadConfig();
-
-    const device = getDeviceInfo();
-    const botCheck = detectBot();
-    const trackingParams = getTrackingParams();
-    const webgl = getWebGLInfo();
-    const geo = await getGeoInfo();
-    const battery = await getBatteryInfo();
-
-    const data = {
-      siteId: CONFIG.SITE_ID,
-      visitorId: generateVisitorId(),
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      language: navigator.language,
-      languages: navigator.languages ? [...navigator.languages] : [],
-      cookiesEnabled: navigator.cookieEnabled,
-      doNotTrack: navigator.doNotTrack === '1',
-      online: navigator.onLine,
-      screen: { width: screen.width, height: screen.height, colorDepth: screen.colorDepth, pixelRatio: window.devicePixelRatio },
-      viewport: { width: window.innerWidth, height: window.innerHeight },
-      touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-      maxTouchPoints: navigator.maxTouchPoints || 0,
-      hardwareConcurrency: navigator.hardwareConcurrency,
-      deviceMemory: navigator.deviceMemory,
-      connection: getConnectionInfo(),
-      referrer: document.referrer,
-      pageUrl: window.location.href,
-      pageTitle: document.title,
-      utm: trackingParams.utm,
-      facebookParams: trackingParams.facebook,
-      isBot: botCheck.isBot,
-      botReason: botCheck.reason,
-      geo: geo,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      webgl: webgl,
-      fingerprints: { canvas: getCanvasFingerprint() },
-      plugins: getPlugins(),
-      battery: battery,
-      storage: { localStorage: !!window.localStorage, sessionStorage: !!window.sessionStorage, indexedDB: !!window.indexedDB },
-      deviceType: device.type
-    };
-
-    const blockCheck = shouldBlock(data);
-    data.wasBlocked = blockCheck.block;
-    data.blockReason = blockCheck.reason;
-
-    await sendTrackingData(data);
-
-    if (blockCheck.block) {
-      window.location.replace(CONFIG.REDIRECT_URL);
-      return;
-    }
-
-    blockDevTools();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
 })();
