@@ -1013,6 +1013,8 @@ app.post('/api/sites', async (req, res) => {
   const refToken = generateRefToken();
   const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
   let target = (target_url || '').trim() || null;
+  // Fix common typos (http:/, https:/ with single slash)
+  if (target) target = target.replace(/^(https?):\/+/, '$1://');
   if (target && !target.match(/^https?:\/\//) && !target.startsWith('/')) target = 'https://' + target;
 
   const userId = req.session.userId;
@@ -1023,6 +1025,8 @@ app.post('/api/sites', async (req, res) => {
   const siteName = (name || '').trim() || 'Sem nome';
 
   let redirUrl = (redirect_url || 'https://www.google.com/').trim();
+  // Fix common typos
+  if (redirUrl) redirUrl = redirUrl.replace(/^(https?):\/+/, '$1://');
   if (redirUrl && !redirUrl.match(/^https?:\/\//) && !redirUrl.startsWith('/')) redirUrl = 'https://' + redirUrl;
 
   try {
@@ -1059,9 +1063,13 @@ app.put('/api/sites/:siteId', async (req, res) => {
     const lpId = blockBehavior === 'page' && data.landing_page_id ? parseInt(data.landing_page_id, 10) : null;
     const selDomain = (data.selected_domain || '').trim() || null;
     let target = (data.target_url || '').trim() || null;
+    // Fix common typos
+    if (target) target = target.replace(/^(https?):\/+/, '$1://');
     if (target && !target.match(/^https?:\/\//) && !target.startsWith('/')) target = 'https://' + target;
 
     let redirUrl = data.redirect_url;
+    // Fix common typos
+    if (redirUrl) redirUrl = redirUrl.replace(/^(https?):\/+/, '$1://');
     if (redirUrl && !redirUrl.match(/^https?:\/\//) && !redirUrl.startsWith('/')) redirUrl = 'https://' + redirUrl;
 
     await db.run(`
@@ -1482,6 +1490,10 @@ app.get('/go/:code', async (req, res) => {
 
     if (wasBlocked) {
       let blockUrl = (site.redirect_url || 'https://www.google.com/').trim();
+
+      // Fix common typos (http:/, https:/ with single slash)
+      blockUrl = blockUrl.replace(/^(https?):\/+/, '$1://');
+
       if (blockUrl && !blockUrl.match(/^https?:\/\//) && !blockUrl.startsWith('/')) {
         blockUrl = 'https://' + blockUrl;
       }
@@ -1497,9 +1509,15 @@ app.get('/go/:code', async (req, res) => {
 
     // Silent Redirect (Premium UX - No 'Found. Redirecting to' body)
     let dest = (site.target_url || '').trim();
+
+    // Fix common typos (http:/, https:/ with single slash)
+    dest = dest.replace(/^(https?):\/+/, '$1://');
+
+    // Ensure protocol exists
     if (dest && !dest.match(/^https?:\/\//) && !dest.startsWith('/')) {
       dest = 'https://' + dest;
     }
+
     const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
     if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
 
