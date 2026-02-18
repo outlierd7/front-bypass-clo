@@ -1426,10 +1426,12 @@ app.get('/go/:code', async (req, res) => {
       return !/mobile|android|iphone|ipad|webos|blackberry|iemobile|opera mini/i.test(u);
     }
     function isFromFacebook() {
-      return referer.includes('facebook.com') || referer.includes('fb.com') || fullUrl.toLowerCase().includes('fbclid=');
+      return referer.includes('facebook.com') || referer.includes('fb.com') || referer.includes('whatsapp') || fullUrl.toLowerCase().includes('fbclid=');
     }
     function isBot() {
       const u = userAgent.toLowerCase();
+      // WhatsApp often uses 'whatsapp' in UA but we want to allow human clicks
+      if (u.includes('whatsapp')) return false;
       const bots = ['bot', 'crawler', 'spider', 'googlebot', 'facebookexternalhit', 'facebot', 'slurp', 'duckduckbot', 'bingbot', 'yandex', 'curl', 'wget', 'python-requests', 'python/', 'java/', 'headless', 'headlesschrome', 'puppeteer', 'phantom', 'selenium', 'playwright', 'chromedriver', 'geckodriver', 'phantomjs', 'lighthouse', 'gtmetrix', 'screaming frog'];
       return bots.some(b => u.includes(b)) || !!req.headers['x-purpose'];
     }
