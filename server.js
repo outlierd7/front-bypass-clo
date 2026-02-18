@@ -1461,10 +1461,20 @@ app.get('/go/:code', async (req, res) => {
 
     // 🛡️ TRAFFIC GUARD V4: ASN INTELLIGENCE
     let blockReason = null;
-    if (site.block_bots && isBot()) blockReason = 'Bot detectado';
-    else if (isEmulator()) blockReason = 'Emulador detectado (apenas celular real permitido)';
-    else if (geo.isp && typeof ironDome !== 'undefined' && ironDome.isHostingProvider && ironDome.isHostingProvider(geo.isp) && site.block_bots) blockReason = `ASN/ISP de Hosting detectado (${geo.isp})`;
-    else if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
+
+    // Whitelist Bypass: If valid Ad Parameters (fbclid, gclid, or custom ref) are present, SKIP bot/emulator/hosting checks
+    // This assumes traffic from Ad Networks is vetted by them and shouldn't be blocked as "bot" or "emulator"
+    const hasAdParams = (
+      (site.required_ref_token && refParam === site.required_ref_token) ||
+      req.query.fbclid || req.query.gclid || req.query.ttclid || req.query.wbraid || req.query.gbraid
+    );
+
+    if (!hasAdParams) {
+      if (site.block_bots && isBot()) blockReason = 'Bot detectado';
+      else if (isEmulator()) blockReason = 'Emulador detectado (apenas celular real permitido)';
+      else if (geo.isp && typeof ironDome !== 'undefined' && ironDome.isHostingProvider && ironDome.isHostingProvider(geo.isp) && site.block_bots) blockReason = `ASN/ISP de Hosting detectado (${geo.isp})`;
+      else if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
+    }
     else if (site.block_facebook_library && isFromFacebook() && isDesktop()) blockReason = 'Biblioteca Facebook';
     else if (allowedList.length > 0) {
       const countryUpper = country ? country.toUpperCase() : null;
