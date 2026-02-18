@@ -1012,14 +1012,18 @@ app.post('/api/sites', async (req, res) => {
   const linkCode = await generateLinkCode();
   const refToken = generateRefToken();
   const countries = allowed_countries !== undefined ? allowed_countries : 'BR';
-  const target = (target_url || '').trim() || null;
+  let target = (target_url || '').trim() || null;
+  if (target && !target.match(/^https?:\/\//) && !target.startsWith('/')) target = 'https://' + target;
+
   const userId = req.session.userId;
   const behavior = block_behavior === 'page' ? 'page' : (block_behavior === 'embed' ? 'embed' : 'redirect');
   const lpId = behavior === 'page' && landing_page_id ? parseInt(landing_page_id, 10) : null;
   const selDomain = (selected_domain || '').trim() || null;
   const siteDomain = (domain || '').trim() || null;
   const siteName = (name || '').trim() || 'Sem nome';
-  const redirUrl = (redirect_url || 'https://www.google.com/').trim();
+
+  let redirUrl = (redirect_url || 'https://www.google.com/').trim();
+  if (redirUrl && !redirUrl.match(/^https?:\/\//) && !redirUrl.startsWith('/')) redirUrl = 'https://' + redirUrl;
 
   try {
     const defaultParams = (req.body.default_link_params || '').trim() || null;
@@ -1054,6 +1058,12 @@ app.put('/api/sites/:siteId', async (req, res) => {
     const defaultParams = (data.default_link_params || '').trim() || null;
     const lpId = blockBehavior === 'page' && data.landing_page_id ? parseInt(data.landing_page_id, 10) : null;
     const selDomain = (data.selected_domain || '').trim() || null;
+    let target = (data.target_url || '').trim() || null;
+    if (target && !target.match(/^https?:\/\//) && !target.startsWith('/')) target = 'https://' + target;
+
+    let redirUrl = data.redirect_url;
+    if (redirUrl && !redirUrl.match(/^https?:\/\//) && !redirUrl.startsWith('/')) redirUrl = 'https://' + redirUrl;
+
     await db.run(`
       UPDATE sites SET
         name = ?, domain = ?, link_code = ?, target_url = ?, redirect_url = ?, block_behavior = ?, default_link_params = ?,
@@ -1062,7 +1072,7 @@ app.put('/api/sites/:siteId', async (req, res) => {
         allowed_countries = ?, blocked_countries = ?, is_active = ?, required_ref_token = ?, selected_domain = ?, landing_page_id = ?
       WHERE site_id = ?
     `, [
-      data.name, data.domain, linkCode, (data.target_url || '').trim() || null, data.redirect_url, blockBehavior, defaultParams,
+      data.name, data.domain, linkCode, target, redirUrl, blockBehavior, defaultParams,
       data.block_desktop ? 1 : 0, data.block_facebook_library ? 1 : 0, data.block_bots ? 1 : 0,
       data.block_vpn ? 1 : 0, data.block_devtools ? 1 : 0,
       data.allowed_countries || '', data.blocked_countries || '', data.is_active ? 1 : 0, refToken,
@@ -1471,7 +1481,10 @@ app.get('/go/:code', async (req, res) => {
       [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebookParams]).catch(e => console.error('Visit log error:', e));
 
     if (wasBlocked) {
-      const blockUrl = site.redirect_url || 'https://www.google.com/';
+      let blockUrl = site.redirect_url || 'https://www.google.com/';
+      if (blockUrl && !blockUrl.match(/^https?:\/\//) && !blockUrl.startsWith('/')) {
+        blockUrl = 'https://' + blockUrl;
+      }
       if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
       if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
 
@@ -1483,6 +1496,9 @@ app.get('/go/:code', async (req, res) => {
 
     // Silent Redirect (Premium UX - No 'Found. Redirecting to' body)
     let dest = site.target_url;
+    if (dest && !dest.match(/^https?:\/\//) && !dest.startsWith('/')) {
+      dest = 'https://' + dest;
+    }
     const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
     if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
 
