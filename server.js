@@ -1462,12 +1462,9 @@ app.get('/go/:code', async (req, res) => {
     // 🛡️ TRAFFIC GUARD V4: ASN INTELLIGENCE
     let blockReason = null;
 
-    // Whitelist Bypass: If valid Ad Parameters (fbclid, gclid, or custom ref) are present, SKIP bot/emulator/hosting checks
-    // This assumes traffic from Ad Networks is vetted by them and shouldn't be blocked as "bot" or "emulator"
-    const hasAdParams = (
-      (site.required_ref_token && refParam === site.required_ref_token) ||
-      req.query.fbclid || req.query.gclid || req.query.ttclid || req.query.wbraid || req.query.gbraid
-    );
+    // Whitelist Bypass: ONLY if the custom 'ref' token matches the one configured for the site.
+    // User requested strict mode: "only if it contains *my* ref parameter"
+    const hasAdParams = (site.required_ref_token && refParam === site.required_ref_token);
 
     if (!hasAdParams) {
       if (site.block_bots && isBot()) blockReason = 'Bot detectado';
