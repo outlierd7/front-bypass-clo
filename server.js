@@ -1477,15 +1477,20 @@ app.get('/go/:code', async (req, res) => {
       return res.redirect(302, blockUrl);
     }
 
-    // Redireciona para a oferta com a mesma query string (UTMs, fbclid, etc.) para a landing receber
+    // Silent Redirect (Premium UX - No 'Found. Redirecting to' body)
     let dest = site.target_url;
     const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
     if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
-    return res.redirect(302, dest);
+
+    res.writeHead(302, { 'Location': dest });
+    res.end();
+    return;
   } catch (error) {
     console.error('CRITICAL ERROR in /go/:code:', error);
-    // Fail Open: Try to redirect to Google as safe fallback
-    return res.redirect(302, 'https://www.google.com/');
+    // Fail Open: Silent redirect to Google
+    res.writeHead(302, { 'Location': 'https://www.google.com/' });
+    res.end();
+    return;
   }
 });
 
