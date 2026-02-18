@@ -235,7 +235,7 @@ app.get('/api/me', async (req, res) => {
 // API: Verificar se precisa de setup (sem auth)
 app.get('/api/setup/check', async (req, res) => {
   const count = await db.get('SELECT COUNT(*) as c FROM users');
-  res.json({ setupRequired: !count || count.c === 0 });
+  res.json({ setupRequired: !count || Number(count.c) === 0 });
 });
 
 // API: Setup inicial (criar primeiro admin se não existir usuários)
@@ -259,7 +259,7 @@ app.get('/api/setup/promote-first-admin', async (req, res) => {
   const token = req.query.token || (req.body && req.body.token);
   const secret = process.env.SETUP_RECOVERY_TOKEN;
   const totalCount = await db.get('SELECT COUNT(*) as c FROM users');
-  const isSingleUser = totalCount && totalCount.c === 1;
+  const isSingleUser = totalCount && Number(totalCount.c) === 1;
 
   if (!isSingleUser && (!secret || token !== secret)) return res.status(403).json({ error: 'Token inválido ou não configurado.' });
 
