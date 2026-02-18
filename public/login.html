@@ -401,52 +401,54 @@
     </div>
   </div>
 
-  // Logic Elements
-  var loginMsg = document.getElementById('loginMsg');
-  var setupBox = document.getElementById('setupBox');
-  var setupMsg = document.getElementById('setupMsg');
+  <script>
+    // Logic Elements
+    var loginMsg = document.getElementById('loginMsg');
+    var setupBox = document.getElementById('setupBox');
+    var setupMsg = document.getElementById('setupMsg');
 
-  // API Helper
-  const api = async (url, data) => {
-  try {
-  const res = await fetch(url, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  credentials: 'include',
-  body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  return { ok: res.ok, data: json };
-  } catch (e) { return { ok: false, error: 'Connection Error' }; }
-  };
+    // API Helper
+    const api = async (url, data) => {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        return { ok: res.ok, data: json };
+      } catch (e) { return { ok: false, error: 'Connection Error' }; }
+    };
 
-  // Check Status
-  fetch('/api/me').then(r => {
-  if (r.ok) window.location.href = '/';
-  else return fetch('/api/setup/check').then(r2 => r2.ok ? r2.json() : {});
-  }).then(d => {
-  if (d && d.setupRequired) {
-  setupBox.style.display = 'block';
-  document.getElementById('loginForm').style.display = 'none';
-  }
-  });
+    // Check Status
+    fetch('/api/me').then(r => {
+      if (r.ok) window.location.href = '/';
+      else return fetch('/api/setup/check').then(r2 => r2.ok ? r2.json() : {});
+    }).then(d => {
+      if (d && d.setupRequired) {
+        setupBox.style.display = 'block';
+        document.getElementById('loginForm').style.display = 'none';
+      }
+    });
 
-  // Handlers
-  document.getElementById('loginForm').onsubmit = async (e) => {
-  e.preventDefault();
-  loginMsg.className = 'msg'; loginMsg.textContent = 'Decrypting credentials...'; loginMsg.style.display = 'block';
-  const res = await api('/api/login', { username: e.target.username.value, password: e.target.password.value });
-  if (res.ok) window.location.href = '/';
-  else { loginMsg.className = 'msg error'; loginMsg.textContent = res.data.error || 'ACCESS DENIED'; }
-  };
+    // Handlers
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      loginMsg.className = 'msg'; loginMsg.textContent = 'Decrypting credentials...'; loginMsg.style.display = 'block';
+      const res = await api('/api/login', { username: e.target.username.value, password: e.target.password.value });
+      if (res.ok) window.location.href = '/';
+      else { loginMsg.className = 'msg error'; loginMsg.textContent = res.data.error || 'ACCESS DENIED'; }
+    };
 
-  document.getElementById('setupForm').onsubmit = async (e) => {
-  e.preventDefault();
-  const res = await api('/api/setup', { username: e.target.setupUsername.value, password: e.target.setupPassword.value
-  });
-  if (res.ok) window.location.href = '/';
-  else { setupMsg.className = 'msg error'; setupMsg.textContent = res.data.error; setupMsg.style.display = 'block'; }
-  };
+    document.getElementById('setupForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const res = await api('/api/setup', {
+        username: e.target.setupUsername.value, password: e.target.setupPassword.value
+      });
+      if (res.ok) window.location.href = '/';
+      else { setupMsg.className = 'msg error'; setupMsg.textContent = res.data.error; setupMsg.style.display = 'block'; }
+    };
   </script>
 </body>
 

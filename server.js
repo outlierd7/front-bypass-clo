@@ -253,17 +253,24 @@ app.post('/api/setup', async (req, res) => {
 });
 
 // API: Recuperação – promover primeiro usuário a admin (quando não há admin e usuário criou conta por "Solicitar acesso")
-// Use apenas quando estiver travado (conta pendente e nenhum admin). Requer token em SETUP_RECOVERY_TOKEN.
+// API: Recuperação – promover primeiro usuário a admin (quando não há admin e usuário criou conta por "Solicitar acesso")
+// Use apenas quando estiver travado (conta pendente e nenhum admin). Requer token em SETUP_RECOVERY_TOKEN ou se houver apenas 1 usuário no banco.
 app.get('/api/setup/promote-first-admin', async (req, res) => {
   const token = req.query.token || (req.body && req.body.token);
   const secret = process.env.SETUP_RECOVERY_TOKEN;
-  if (!secret || token !== secret) return res.status(403).json({ error: 'Token inválido ou não configurado.' });
+  const totalCount = await db.get('SELECT COUNT(*) as c FROM users');
+  const isSingleUser = totalCount && totalCount.c === 1;
+
+  if (!isSingleUser && (!secret || token !== secret)) return res.status(403).json({ error: 'Token inválido ou não configurado.' });
+
   const adminCount = await db.get('SELECT COUNT(*) as c FROM users WHERE role = ?', ['admin']);
   if (adminCount && adminCount.c > 0) return res.status(400).json({ error: 'Já existe um administrador. Use o painel para aprovar usuários.' });
+
   const first = await db.get('SELECT id, username FROM users ORDER BY id ASC LIMIT 1');
   if (!first) return res.status(404).json({ error: 'Nenhum usuário no banco.' });
+
   await db.run('UPDATE users SET role = ?, status = ? WHERE id = ?', ['admin', 'active', first.id]);
-  res.json({ success: true, message: 'Primeiro usuário promovido a administrador. Faça login com: ' + first.username });
+  res.json({ success: true, message: 'Primeiro usuário promovido a administrador com sucesso! Faça login com: ' + first.username });
 });
 
 // API: Configurações (domínio do cloaker – por usuário: cada user tem seu próprio domínio)
