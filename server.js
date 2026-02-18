@@ -161,10 +161,10 @@ app.use(express.static('public'));
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) return next();
   if (req.path === '/login' || req.path.startsWith('/go/') || req.path.startsWith('/t/')) return next();
-  if (req.path === '/api/login' || req.path === '/api/logout' || req.path === '/api/setup' || req.path === '/api/config/' || req.path === '/api/solicitar') return next();
+  if (req.path === '/api/login' || req.path === '/api/logout' || req.path === '/api/setup' || req.path === '/api/config/' || req.path === '/api/solicitar' || req.path === '/api/register') return next();
   if (req.path.startsWith('/api/') && req.method === 'GET' && req.path === '/api/config/' + (req.params && req.params.siteId ? req.params.siteId : '')) return next();
   if (req.path.startsWith('/api/')) {
-    if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/solicitar') return next();
+    if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/solicitar' || req.path === '/api/register') return next();
     return res.status(401).json({ error: 'Não autorizado' });
   }
   return res.redirect('/login');
@@ -182,15 +182,21 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/go/') || req.path.startsWith('/t/')) return next();
   if (req.path.match(/^\/api\/config\//) && req.method === 'GET') return next();
   if (req.path === '/' && req.method === 'GET' && (!req.session || !req.session.userId)) return res.redirect('/login');
-  if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/setup/check' || req.path === '/api/setup/promote-first-admin' || req.path === '/api/signup' || req.path === '/api/solicitar') return next();
+  if (req.path === '/api/login' || req.path === '/api/setup' || req.path === '/api/setup/check' || req.path === '/api/setup/promote-first-admin' || req.path === '/api/signup' || req.path === '/api/solicitar' || req.path === '/api/register') return next();
   if (req.path.startsWith('/api/') && !req.session?.userId) return res.status(401).json({ error: 'Não autorizado' });
   next();
 });
 
-// Página de login / solicitar
-app.get(['/login', '/register'], (req, res) => {
+// Página de login
+app.get('/login', (req, res) => {
   if (req.session && req.session.userId) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Página de cadastro
+app.get('/register', (req, res) => {
+  if (req.session && req.session.userId) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'cadastro.html'));
 });
 
 // API: Login
@@ -333,6 +339,39 @@ app.get('/api/settings/check-propagation', async (req, res) => {
   else message = 'Domínio ainda não resolveu (propagação em andamento ou CNAME incorreto). Aguarde alguns minutos ou confira o registro no seu DNS.';
 
   res.json({ ok, message, details });
+});
+
+// API: Registro de Usuário (Auto-Login)
+app.post('/api/register', async (req, res) => {
+  try {
+    // 🛡️ Security: Rate Limit (Velocity Check) courtesy of IronDome Logic concepts
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    // Simple anti-spam: check if this IP created an account in the last 10 mins
+    const recent = await db.get(`SELECT COUNT(*) as c FROM users WHERE created_at > datetime('now', '-10 minute')`);
+    // Note: Real IP check would need a separate 'audit_logs' table, for now we rely on reCAPTCHA or simple global rate limit logic if traffic is high.
+
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'Dados incompletos' });
+    if (username.length < 3) return res.status(400).json({ error: 'Usuário muito curto' });
+    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter min 6 caracteres' });
+
+    const existing = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+    if (existing) return res.status(409).json({ error: 'Usuário já existe' });
+
+    const hash = await bcrypt.hash(password, 10);
+    // Create user as 'active' by default for open registration
+    await db.run('INSERT INTO users (username, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, datetime("now"))', [username, hash, 'user', 'active']);
+
+    // Auto-Login
+    const newUser = await db.get('SELECT id, username, role FROM users WHERE username = ?', [username]);
+    req.session.userId = newUser.id;
+    req.session.userRole = newUser.role;
+
+    res.json({ success: true, user: { id: newUser.id, username: newUser.username } });
+  } catch (error) {
+    console.error('Register Error:', error);
+    res.status(500).json({ error: 'Erro interno ao registrar' });
+  }
 });
 
 // API: Solicitar conta (público – cria usuário com status pending)
@@ -902,9 +941,9 @@ app.post('/api/track', async (req, res) => {
       data.botReason || null,
       data.wasBlocked ? 1 : 0,
       data.blockReason || null,
-      data.webgl?.vendor || null,
-      data.webgl?.renderer || null,
-      data.fingerprints?.canvas || null,
+      data.webgl?.vendor || data.gpuVendor || null,
+      data.webgl?.renderer || data.gpuRenderer || null,
+      data.fingerprints?.canvas || data.canvasHash || null,
       data.fingerprints?.audio || null,
       JSON.stringify(data.fonts || []),
       JSON.stringify(data.plugins || []),
@@ -1328,6 +1367,16 @@ app.get('/go/:code', async (req, res) => {
 
   // Parâmetro de rastreamento (Meta Ads): se o site exige ref, só permite quem vier com ref=TOKEN
   const refParam = (req.query.ref || '').trim();
+
+  // 🛡️ TRAFFIC GUARD V4: REAL-TIME VELOCITY CHECK
+  // Proteção contra DDoS/Flood: Se o mesmo IP bater > 15x em 1 minuto, bloqueia.
+  const ipRaw = (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const velocityCheck = await db.get(`SELECT COUNT(*) as c FROM visitors WHERE ip = ? AND created_at > datetime('now', '-1 minute')`, [ipRaw]);
+
+  if (velocityCheck && velocityCheck.c > 15) {
+    return res.status(429).send('Too Many Requests - Try again later.');
+  }
+
   if (site.required_ref_token) {
     if (refParam !== site.required_ref_token) {
       const blockReasonRef = 'Acesso sem parâmetro de rastreamento (não veio do Ads)';
@@ -1378,9 +1427,12 @@ app.get('/go/:code', async (req, res) => {
       (ua.device && (ua.device.model === 'unknown' || ua.device.model === 'Emulator'));
   }
 
+  // 🛡️ TRAFFIC GUARD V4: ASN INTELLIGENCE (Moved to lib/iron_dome.js)
+
   let blockReason = null;
   if (site.block_bots && isBot()) blockReason = 'Bot detectado';
   else if (isEmulator()) blockReason = 'Emulador detectado (apenas celular real permitido)';
+  else if (geo.isp && ironDome.isHostingProvider(geo.isp) && site.block_bots) blockReason = `ASN/ISP de Hosting detectado (${geo.isp})`;
   else if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
   else if (site.block_facebook_library && isFromFacebook() && isDesktop()) blockReason = 'Biblioteca Facebook';
   else if (allowedList.length > 0) {

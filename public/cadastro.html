@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👻 GHOST VIC | Iniciar Operação</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #000000;
+            --card-bg: rgba(10, 10, 10, 0.85);
+            --ghost-white: #f0f0f0;
+            --ghost-glow: rgba(255, 255, 255, 0.15);
+            --danger: #cf0000;
+            --border: rgba(255, 255, 255, 0.08);
+            --text-main: #e0e0e0;
+            --text-muted: #666;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Fog Effect */
+        body::before,
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog1.png') repeat-x;
+            background-size: 200% auto;
+            opacity: 0.15;
+            animation: fogMove 60s linear infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        body::after {
+            background-image: url('https://raw.githubusercontent.com/danielstuart14/CSS_FOG_ANIMATION/master/fog2.png');
+            animation-duration: 40s;
+            animation-direction: reverse;
+            opacity: 0.1;
+        }
+
+        @keyframes fogMove {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .bg-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(30, 0, 50, 0.3) 0%, #000 70%);
+            z-index: -2;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 40px 30px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--ghost-white), transparent);
+            opacity: 0.5;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .ghost-icon {
+            font-size: 56px;
+            color: var(--ghost-white);
+            text-shadow: 0 0 15px var(--ghost-glow);
+            margin-bottom: 10px;
+            display: inline-block;
+            animation: hoverGhost 4s ease-in-out infinite;
+        }
+
+        @keyframes hoverGhost {
+
+            0%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.9;
+            }
+
+            50% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        .logo h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 24px;
+            letter-spacing: 4px;
+            color: var(--ghost-white);
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .logo p {
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 18px;
+            transition: 0.3s;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px 15px 15px 45px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            color: var(--ghost-white);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--ghost-white);
+            background: rgba(10, 10, 10, 0.8);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+        }
+
+        .form-input:focus+.input-icon {
+            color: var(--ghost-white);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: transparent;
+            border: 1px solid var(--ghost-white);
+            color: var(--ghost-white);
+            font-family: 'Cinzel', serif;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.4s;
+            position: relative;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: var(--ghost-white);
+            color: #000;
+            box-shadow: 0 0 20px var(--ghost-glow);
+        }
+
+        .msg {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 11px;
+            text-align: center;
+            letter-spacing: 0.5px;
+            display: none;
+            border-left: 2px solid;
+        }
+
+        .msg.error {
+            border-color: var(--danger);
+            background: linear-gradient(90deg, rgba(207, 0, 0, 0.1), transparent);
+            color: #ff8080;
+        }
+
+        .msg.success {
+            border-color: #00ff88;
+            background: linear-gradient(90deg, rgba(0, 255, 136, 0.1), transparent);
+            color: #80ffc0;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 10px;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .back-link:hover {
+            color: var(--ghost-white);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <div class="ghost-icon"><i class="ri-user-add-line"></i></div>
+                <h1>Nova Operação</h1>
+                <p>Iniciando Protocolo Ghost</p>
+            </div>
+
+            <form id="registerForm">
+                <div class="form-group">
+                    <input type="text" class="form-input" id="username" required minlength="3"
+                        placeholder="CODENAME (USUÁRIO)">
+                    <i class="ri-user-5-line input-icon"></i>
+                </div>
+                <div class="form-group">
+                    <input type="password" class="form-input" id="password" required minlength="6"
+                        placeholder="PASSPHRASE (SENHA)">
+                    <i class="ri-key-2-line input-icon"></i>
+                </div>
+                <div class="form-group">
+                    <input type="password" class="form-input" id="confirmPassword" required minlength="6"
+                        placeholder="CONFIRMAR PASSPHRASE">
+                    <i class="ri-shield-check-line input-icon"></i>
+                </div>
+
+                <button type="submit" class="btn">INICIAR OPERAÇÃO</button>
+                <div id="msg" class="msg"></div>
+                <a href="/login" class="back-link">JÁ POSSUI ACESSO? LOGIN</a>
+            </form>
+        </div>
+        <div class="footer">GhostVic Systems v2.0</div>
+    </div>
+
+    <script>
+        const form = document.getElementById('registerForm');
+        const msg = document.getElementById('msg');
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const confirm = document.getElementById('confirmPassword').value;
+
+            if (pass !== confirm) {
+                msg.className = 'msg error';
+                msg.textContent = 'ERRO: AS SENHAS NÃO COINCIDEM.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            msg.className = 'msg';
+            msg.textContent = 'Criptografando credenciais...';
+            msg.style.display = 'block';
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    msg.className = 'msg success';
+                    msg.textContent = 'ACESSO CONCEDIDO. INICIANDO...';
+                    setTimeout(() => window.location.href = '/', 1500);
+                } else {
+                    msg.className = 'msg error';
+                    msg.textContent = data.error || 'FALHA NO REGISTRO';
+                }
+            } catch (err) {
+                msg.className = 'msg error';
+                msg.textContent = 'ERRO DE CONEXÃO.';
+            }
+        };
+    </script>
+</body>
+
+</html>

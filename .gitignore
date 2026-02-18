@@ -8,3 +8,4 @@ cloaker.db
 Thumbs.db
 backup-empty-for-tables.json
 *-backup-*.json
+test_data/

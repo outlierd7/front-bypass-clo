@@ -105,6 +105,25 @@ async function runTests() {
         },
         connection: { remoteAddress: '200.200.200.200' }
     }, false);
+    // TEST 6: ASN Intelligence (Hosting Provider Check)
+    const badIsp = 'Amazon Web Services';
+    const goodIsp = 'Vivo Telefonica';
+
+    if (ironDome.isHostingProvider(badIsp) === true) {
+        console.log(`✅ [PASS] ASN Intelligence (Blocked '${badIsp}')`);
+        passed++;
+    } else {
+        console.error(`❌ [FAIL] ASN Intelligence (Failed to block '${badIsp}')`);
+        failed++;
+    }
+
+    if (ironDome.isHostingProvider(goodIsp) === false) {
+        console.log(`✅ [PASS] ASN Intelligence (Allowed '${goodIsp}')`);
+        passed++;
+    } else {
+        console.error(`❌ [FAIL] ASN Intelligence (Blocked legitimate '${goodIsp}')`);
+        failed++;
+    }
 
     console.log(`\n📊 SUMMARY: ${passed} Passed, ${failed} Failed`);
 }

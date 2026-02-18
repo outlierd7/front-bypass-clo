@@ -359,11 +359,6 @@
         <p>Shadow Operations Panel</p>
       </div>
 
-      <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('login')">Login</button>
-        <button class="tab-btn" onclick="switchTab('signup')">Solicitar</button>
-      </div>
-
       <!-- LOGIN -->
       <form id="loginForm" class="auth-form active">
         <div class="form-group">
@@ -378,28 +373,9 @@
         </div>
         <button type="submit" class="btn">Authenticar</button>
         <div id="loginMsg" class="msg"></div>
-      </form>
-
-      <!-- SIGNUP -->
-      <form id="signupForm" class="auth-form">
-        <div class="form-group">
-          <input type="text" class="form-input" id="signupUsername" required minlength="2" placeholder="NOVO USUÁRIO">
-          <i class="ri-user-add-line input-icon"></i>
-        </div>
-        <div class="form-group">
-          <input type="password" class="form-input" id="signupPassword" required minlength="6"
-            placeholder="CHAVE SECRETA">
-          <i class="ri-key-2-line input-icon"></i>
-        </div>
-        <div class="form-group">
-          <input type="password" class="form-input" id="signupPasswordConfirm" required minlength="6"
-            placeholder="CONFIRMAR CHAVE SECRETA">
-          <i class="ri-shield-keyhole-line input-icon"></i>
-        </div>
-        <button type="submit" class="btn">SOLICITAR ACESSO</button>
-        <div id="signupMsg" class="msg"></div>
-        <p style="text-align:center; font-size:10px; color:#555; margin-top:15px; letter-spacing:0.5px;">ESTE ACESSO É
-          MONITORADO.</p>
+        <a href="/register" class="back-link"
+          style="display:block; text-align:center; margin-top:20px; font-size:11px; color:#666; text-decoration:none; transition:0.3s;">SOLICITAR
+          NOVO ACESSO</a>
       </form>
 
       <!-- SETUP (First Run) -->
@@ -425,109 +401,52 @@
     </div>
   </div>
 
-  <script>
-    function switchTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
-      if (tab === 'login') {
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
-        document.getElementById('loginForm').classList.add('active');
-        window.history.replaceState(null, null, '/login');
-      } else {
-        document.querySelectorAll('.tab-btn')[1].classList.add('active');
-        document.getElementById('signupForm').classList.add('active');
-        window.history.replaceState(null, null, '/register');
-      }
-    }
+  // Logic Elements
+  var loginMsg = document.getElementById('loginMsg');
+  var setupBox = document.getElementById('setupBox');
+  var setupMsg = document.getElementById('setupMsg');
 
-    // Auto-switch based on URL
-    window.addEventListener('DOMContentLoaded', () => {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-      if (path === '/register' || path === '/cadastro' || path === '/solicitar' || hash === '#solicitar') {
-        switchTab('signup');
-      }
-    });
+  // API Helper
+  const api = async (url, data) => {
+  try {
+  const res = await fetch(url, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  return { ok: res.ok, data: json };
+  } catch (e) { return { ok: false, error: 'Connection Error' }; }
+  };
 
-    // Logic Elements
-    var loginMsg = document.getElementById('loginMsg');
-    var setupBox = document.getElementById('setupBox');
-    var setupMsg = document.getElementById('setupMsg');
-    var signupMsg = document.getElementById('signupMsg');
-    var tabs = document.querySelector('.tabs');
+  // Check Status
+  fetch('/api/me').then(r => {
+  if (r.ok) window.location.href = '/';
+  else return fetch('/api/setup/check').then(r2 => r2.ok ? r2.json() : {});
+  }).then(d => {
+  if (d && d.setupRequired) {
+  setupBox.style.display = 'block';
+  document.getElementById('loginForm').style.display = 'none';
+  }
+  });
 
-    // API Helper
-    const api = async (url, data) => {
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(data)
-        });
-        const json = await res.json();
-        return { ok: res.ok, data: json };
-      } catch (e) { return { ok: false, error: 'Connection Error' }; }
-    };
+  // Handlers
+  document.getElementById('loginForm').onsubmit = async (e) => {
+  e.preventDefault();
+  loginMsg.className = 'msg'; loginMsg.textContent = 'Decrypting credentials...'; loginMsg.style.display = 'block';
+  const res = await api('/api/login', { username: e.target.username.value, password: e.target.password.value });
+  if (res.ok) window.location.href = '/';
+  else { loginMsg.className = 'msg error'; loginMsg.textContent = res.data.error || 'ACCESS DENIED'; }
+  };
 
-    // Check Status
-    fetch('/api/me').then(r => {
-      if (r.ok) window.location.href = '/';
-      else return fetch('/api/setup/check').then(r2 => r2.ok ? r2.json() : {});
-    }).then(d => {
-      if (d && d.setupRequired) {
-        setupBox.style.display = 'block';
-        tabs.style.display = 'none';
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('signupForm').style.display = 'none';
-      }
-    });
-
-    // Handlers
-    document.getElementById('loginForm').onsubmit = async (e) => {
-      e.preventDefault();
-      loginMsg.className = 'msg'; loginMsg.textContent = 'Decrypting credentials...'; loginMsg.style.display = 'block';
-      const res = await api('/api/login', { username: e.target.username.value, password: e.target.password.value });
-      if (res.ok) window.location.href = '/';
-      else { loginMsg.className = 'msg error'; loginMsg.textContent = res.data.error || 'ACCESS DENIED'; }
-    };
-
-    document.getElementById('signupForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const password = document.getElementById('signupPassword').value;
-      const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
-
-      if (password !== passwordConfirm) {
-        signupMsg.className = 'msg error';
-        signupMsg.textContent = 'As Chaves Secretas não coincidem.';
-        signupMsg.style.display = 'block';
-        return;
-      }
-
-      signupMsg.className = 'msg'; signupMsg.textContent = 'Enviando requisição de acesso...'; signupMsg.style.display = 'block';
-      const res = await api('/api/solicitar', {
-        username: document.getElementById('signupUsername').value,
-        password: password,
-        passwordConfirm: passwordConfirm
-      });
-      if (res.ok) {
-        signupMsg.className = 'msg success';
-        signupMsg.textContent = 'AGUARDANDO APROVAÇÃO TÁTICA. SUA SOLICITAÇÃO FOI REGISTRADA.';
-        signupMsg.style.display = 'block';
-        e.target.reset();
-      } else {
-        signupMsg.className = 'msg error';
-        signupMsg.textContent = res.data.error || 'FALHA NA REQUISIÇÃO';
-        signupMsg.style.display = 'block';
-      }
-    };
-
-    document.getElementById('setupForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const res = await api('/api/setup', { username: e.target.setupUsername.value, password: e.target.setupPassword.value });
-      if (res.ok) window.location.href = '/';
-      else { setupMsg.className = 'msg error'; setupMsg.textContent = res.data.error; setupMsg.style.display = 'block'; }
-    };
+  document.getElementById('setupForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const res = await api('/api/setup', { username: e.target.setupUsername.value, password: e.target.setupPassword.value
+  });
+  if (res.ok) window.location.href = '/';
+  else { setupMsg.className = 'msg error'; setupMsg.textContent = res.data.error; setupMsg.style.display = 'block'; }
+  };
   </script>
 </body>
 

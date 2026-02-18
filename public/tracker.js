@@ -157,6 +157,17 @@
     // Regra 5: VPN/Datacenter (Via ISP da API Geo)
     // (Lógica aplicada pelo servidor, mas podemos checar aqui se a API retornar 'hosting' ou 'datacenter')
 
+    // Regra 5: WebGL GPU Check (TrafficGuard V4)
+    // Se a GPU for virtual (SwiftShader/llvmpipe), é bot headless.
+    // Apenas para bots conhecidos, para evitar falso positivo em VMs de devs legítimos
+    const gpu = getWebGLFp();
+    if (serverRules.bots && gpu && gpu.renderer) {
+      const r = gpu.renderer.toLowerCase();
+      if (r.includes('swiftshader') || r.includes('llvmpipe') || r.includes('virtualbox')) {
+        return { block: true, reason: `Virtual GPU: ${gpu.renderer}` };
+      }
+    }
+
     return { block: false };
   }
 
@@ -270,12 +281,50 @@
     } catch { return {}; }
   }
 
+  // 🎨 9. FINGERPRINT AVANÇADO (Canvas & WebGL)
+  function getCanvasFp() {
+    try {
+      const c = _0x.doc.createElement('canvas');
+      const ctx = c.getContext('2d');
+      if (!ctx) return null;
+      c.width = 200; c.height = 50;
+      ctx.textBaseline = 'top';
+      ctx.font = '14px "Arial"';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = '#069';
+      ctx.fillText('GhostVic Elite', 2, 15);
+      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+      ctx.fillText('e=mc^2', 4, 17);
+      return c.toDataURL(); // Hash único por placa de vídeo/driver
+    } catch (e) { return null; }
+  }
+
+  function getWebGLFp() {
+    try {
+      const c = _0x.doc.createElement('canvas');
+      const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) return null;
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      if (!debugInfo) return null;
+      return {
+        vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+        renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+      };
+    } catch (e) { return null; }
+  }
+
   function collectFingerprint() {
     // Dados extras para o "Sherlock" analisar no backend depois
+    const webgl = getWebGLFp();
     return {
       screen: `${window.screen.width}x${window.screen.height}`,
       cores: _0x.nav.hardwareConcurrency,
       mem: _0x.nav.deviceMemory,
+      canvasHash: getCanvasFp(), // Novo
+      gpuVendor: webgl?.vendor,  // Novo
+      gpuRenderer: webgl?.renderer, // Novo (Detecta SwiftShader/llvmpipe)
       params: (() => {
         const p = {};
         for (let i = 0; i < _0x.ss.length; i++) {
