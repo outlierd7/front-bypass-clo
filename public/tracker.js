@@ -40,7 +40,8 @@
     ID: URL_MATCH ? URL_MATCH[1] : 'default',
     SAFE_URL: 'https://www.google.com/',
     // Padrões de bloqueio (serão atualizados pelo servidor)
-    RULES: { desktop: true, fb_lib: true, bots: true, vpn: false, devtools: true }
+    // CRITICAL FIX: Desktop e VPN default false para evitar bloquear antes de carregar config!
+    RULES: { desktop: false, fb_lib: true, bots: true, vpn: false, devtools: true }
   };
 
   // 💾 4. PARAMETER LOCK (Trava de Parâmetros)

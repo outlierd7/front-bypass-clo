@@ -130,6 +130,31 @@ const sessionOpts = {
 };
 if (sessionStore) sessionOpts.store = sessionStore;
 app.use(session(sessionOpts));
+
+// 🛡️ IRON DOME SECURITY MIDDLEWARE
+const IronDome = require('./lib/iron_dome');
+const ironDome = new IronDome(db);
+
+app.use(async (req, res, next) => {
+  // Exceção: Admins logados podem passar (para não se bloquearem via VPN)
+  // Exceção: Admins logados podem passar (para não se bloquearem via VPN)
+  if (req.session && req.session.userId) return next();
+
+  // Exceção: Arquivos estáticos (imagens, css, js, fonts) não gastam recurso de DB
+  if (req.path.match(/\.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|map)$/i)) return next();
+
+  try {
+    const verdict = await ironDome.check(req);
+    if (verdict.block) {
+      console.log(`[IronDome] 🛑 Blocked: ${verdict.reason}`);
+      return res.status(verdict.status || 403).send('Not Found');
+    }
+  } catch (e) {
+    console.error('[IronDome] Error:', e);
+  }
+  next();
+});
+
 app.use(express.static('public'));
 
 // Autenticação: exige sessão para / e /api/* (exceto login, setup, config, go, t)
