@@ -13,6 +13,10 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security Module
+const IronDome = require('./lib/iron_dome');
+const ironDome = new IronDome(db);
+
 // Middleware para garantir que o BD (Postgres) conecte no Vercel antes da rota (REMOVIDO - Railway não precisa)
 const SESSION_SECRET = process.env.SESSION_SECRET || 'cloaker-pro-secret-change-in-production';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -132,9 +136,6 @@ if (sessionStore) sessionOpts.store = sessionStore;
 app.use(session(sessionOpts));
 
 // 🛡️ IRON DOME SECURITY MIDDLEWARE
-const IronDome = require('./lib/iron_dome');
-const ironDome = new IronDome(db);
-
 app.use(async (req, res, next) => {
   // Exceção: Admins logados podem passar (para não se bloquearem via VPN)
   // Exceção: Admins logados podem passar (para não se bloquearem via VPN)
@@ -1366,115 +1367,124 @@ async function sendCustomPage(res, site) {
 // Você cola seu link no painel → o sistema gera um novo link → use esse link nos anúncios.
 // Quem clica passa aqui: checamos (desktop, bot, emulador, país por IP) e redirecionamos.
 app.get('/go/:code', async (req, res) => {
-  const code = (req.params.code || '').toLowerCase();
-  const site = await db.get('SELECT * FROM sites WHERE link_code = ? AND is_active = 1', [code]);
-  if (!site || !site.target_url) {
-    return res.redirect(302, 'https://www.google.com/');
-  }
+  try {
+    const code = (req.params.code || '').toLowerCase();
+    const site = await db.get('SELECT * FROM sites WHERE link_code = ? AND is_active = 1', [code]);
+    if (!site || !site.target_url) {
+      return res.redirect(302, 'https://www.google.com/');
+    }
 
-  // Parâmetro de rastreamento (Meta Ads): se o site exige ref, só permite quem vier com ref=TOKEN
-  const refParam = (req.query.ref || '').trim();
+    // Parâmetro de rastreamento (Meta Ads): se o site exige ref, só permite quem vier com ref=TOKEN
+    const refParam = (req.query.ref || '').trim();
 
-  // 🛡️ TRAFFIC GUARD V4: REAL-TIME VELOCITY CHECK
-  // Proteção contra DDoS/Flood: Se o mesmo IP bater > 15x em 1 minuto, bloqueia.
-  const ipRaw = (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-  const velocityCheck = await db.get(`SELECT COUNT(*) as c FROM visitors WHERE ip = ? AND created_at > datetime('now', '-1 minute')`, [ipRaw]);
+    // 🛡️ TRAFFIC GUARD V4: REAL-TIME VELOCITY CHECK
+    const ipRaw = (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    // Wrap velocity check in try-catch to prevent DB lock overlap from crashing request
+    try {
+      const velocityCheck = await db.get(`SELECT COUNT(*) as c FROM visitors WHERE ip = ? AND created_at > datetime('now', '-1 minute')`, [ipRaw]);
+      if (velocityCheck && (velocityCheck.c > 15 || Number(velocityCheck.c) > 15)) {
+        return res.status(429).send('Too Many Requests');
+      }
+    } catch (e) { console.error('Velocity check error', e); }
 
-  if (velocityCheck && velocityCheck.c > 15) {
-    return res.status(429).send('Too Many Requests - Try again later.');
-  }
+    if (site.required_ref_token) {
+      if (refParam !== site.required_ref_token) {
+        const blockReasonRef = 'Acesso sem parâmetro de rastreamento (não veio do Ads)';
+        const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+        // Log block (async, don't await to speed up)
+        db.run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, datetime('now'))`,
+          [site.site_id, ipRaw, req.headers['user-agent'] || '', (req.headers['referer'] || req.headers['referrer'] || ''), fullUrl, null, null, null, null, null, null, null, blockReasonRef]).catch(err => console.error('Ref block log error', err));
 
-  if (site.required_ref_token) {
-    if (refParam !== site.required_ref_token) {
-      const blockReasonRef = 'Acesso sem parâmetro de rastreamento (não veio do Ads)';
-      const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
-      await db.run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, datetime('now'))`,
-        [site.site_id, (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim() || 'unknown', req.headers['user-agent'] || '', (req.headers['referer'] || req.headers['referrer'] || ''), fullUrl, null, null, null, null, null, null, null, blockReasonRef]);
+        const blockUrl = site.redirect_url || 'https://www.google.com/';
+        if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
+        if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
+        return res.redirect(302, blockUrl);
+      }
+    }
+
+    // IP: prioridade cf-connecting-ip (Cloudflare), true-client-ip, x-forwarded-for (1º = cliente), x-real-ip, socket
+    let ip = (req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').toString();
+    ip = ip.split(',')[0].trim();
+    if (ip === '::1') ip = '127.0.0.1';
+    if (!ip) ip = 'unknown';
+
+    const userAgent = req.headers['user-agent'] || '';
+    const referer = (req.headers['referer'] || req.headers['referrer'] || '').toLowerCase();
+    const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+    const parser = new UAParser(userAgent);
+    const ua = parser.getResult();
+    const deviceType = (ua.device && ua.device.type) ? ua.device.type : (userAgent.toLowerCase().match(/mobile|android|iphone|ipad/) ? 'mobile' : 'desktop');
+
+    const geo = await getGeoByIP(ip);
+    const country = geo.country;
+
+    const allowedList = (site.allowed_countries || 'BR').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+    const blockedList = (site.blocked_countries || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+
+    function isDesktop() {
+      const u = userAgent.toLowerCase();
+      return !/mobile|android|iphone|ipad|webos|blackberry|iemobile|opera mini/i.test(u);
+    }
+    function isFromFacebook() {
+      return referer.includes('facebook.com') || referer.includes('fb.com') || fullUrl.toLowerCase().includes('fbclid=');
+    }
+    function isBot() {
+      const u = userAgent.toLowerCase();
+      const bots = ['bot', 'crawler', 'spider', 'googlebot', 'facebookexternalhit', 'facebot', 'slurp', 'duckduckbot', 'bingbot', 'yandex', 'curl', 'wget', 'python-requests', 'python/', 'java/', 'headless', 'headlesschrome', 'puppeteer', 'phantom', 'selenium', 'playwright', 'chromedriver', 'geckodriver', 'phantomjs', 'lighthouse', 'gtmetrix', 'screaming frog'];
+      return bots.some(b => u.includes(b)) || !!req.headers['x-purpose'];
+    }
+    function isEmulator() {
+      const u = userAgent.toLowerCase();
+      return /android sdk|sdk_gphone|emulator|generic.*android|build\/generic|model.*unknown|vbox|genymotion|bluestacks|nox|andy|droid4x|memu|koplayer|mumu/i.test(u) ||
+        (ua.device && (ua.device.model === 'unknown' || ua.device.model === 'Emulator'));
+    }
+
+    // 🛡️ TRAFFIC GUARD V4: ASN INTELLIGENCE
+    let blockReason = null;
+    if (site.block_bots && isBot()) blockReason = 'Bot detectado';
+    else if (isEmulator()) blockReason = 'Emulador detectado (apenas celular real permitido)';
+    else if (geo.isp && typeof ironDome !== 'undefined' && ironDome.isHostingProvider && ironDome.isHostingProvider(geo.isp) && site.block_bots) blockReason = `ASN/ISP de Hosting detectado (${geo.isp})`;
+    else if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
+    else if (site.block_facebook_library && isFromFacebook() && isDesktop()) blockReason = 'Biblioteca Facebook';
+    else if (allowedList.length > 0) {
+      const countryUpper = country ? country.toUpperCase() : null;
+      if (!countryUpper) blockReason = 'País não identificado pelo IP (bloqueado por segurança)';
+      else if (!allowedList.includes(countryUpper)) blockReason = `País não permitido: ${countryUpper}`;
+      else if (blockedList.length > 0 && blockedList.includes(countryUpper)) blockReason = `País bloqueado: ${countryUpper}`;
+    } else if (country && blockedList.includes(country.toUpperCase())) blockReason = `País bloqueado: ${country}`;
+
+    const wasBlocked = !!blockReason;
+
+    // UTMs e parâmetros dos Ads (vêm na URL do clique) – repassados para o link de oferta no redirect
+    const utm_source = (req.query.utm_source || '').trim() || null;
+    const utm_medium = (req.query.utm_medium || '').trim() || null;
+    const utm_campaign = (req.query.utm_campaign || '').trim() || null;
+    const utm_term = (req.query.utm_term || '').trim() || null;
+    const utm_content = (req.query.utm_content || '').trim() || null;
+    const fbclid = (req.query.fbclid || '').trim() || null;
+    const facebookParams = fbclid ? JSON.stringify({ fbclid }) : null;
+
+    // Log visita (async)
+    db.run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebook_params, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebookParams]).catch(e => console.error('Visit log error:', e));
+
+    if (wasBlocked) {
       const blockUrl = site.redirect_url || 'https://www.google.com/';
       if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
       if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
       return res.redirect(302, blockUrl);
     }
+
+    // Redireciona para a oferta com a mesma query string (UTMs, fbclid, etc.) para a landing receber
+    let dest = site.target_url;
+    const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
+    if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
+    return res.redirect(302, dest);
+  } catch (error) {
+    console.error('CRITICAL ERROR in /go/:code:', error);
+    // Fail Open: Try to redirect to Google as safe fallback
+    return res.redirect(302, 'https://www.google.com/');
   }
-
-  // IP: prioridade cf-connecting-ip (Cloudflare), true-client-ip, x-forwarded-for (1º = cliente), x-real-ip, socket
-  let ip = (req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').toString();
-  ip = ip.split(',')[0].trim();
-  if (ip === '::1') ip = '127.0.0.1';
-  if (!ip) ip = 'unknown';
-
-  const userAgent = req.headers['user-agent'] || '';
-  const referer = (req.headers['referer'] || req.headers['referrer'] || '').toLowerCase();
-  const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
-  const parser = new UAParser(userAgent);
-  const ua = parser.getResult();
-  const deviceType = (ua.device && ua.device.type) ? ua.device.type : (userAgent.toLowerCase().match(/mobile|android|iphone|ipad/) ? 'mobile' : 'desktop');
-
-  const geo = await getGeoByIP(ip);
-  const country = geo.country;
-
-  const allowedList = (site.allowed_countries || 'BR').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
-  const blockedList = (site.blocked_countries || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
-
-  function isDesktop() {
-    const u = userAgent.toLowerCase();
-    return !/mobile|android|iphone|ipad|webos|blackberry|iemobile|opera mini/i.test(u);
-  }
-  function isFromFacebook() {
-    return referer.includes('facebook.com') || referer.includes('fb.com') || fullUrl.toLowerCase().includes('fbclid=');
-  }
-  function isBot() {
-    const u = userAgent.toLowerCase();
-    const bots = ['bot', 'crawler', 'spider', 'googlebot', 'facebookexternalhit', 'facebot', 'slurp', 'duckduckbot', 'bingbot', 'yandex', 'curl', 'wget', 'python-requests', 'python/', 'java/', 'headless', 'headlesschrome', 'puppeteer', 'phantom', 'selenium', 'playwright', 'chromedriver', 'geckodriver', 'phantomjs', 'lighthouse', 'gtmetrix', 'screaming frog'];
-    return bots.some(b => u.includes(b)) || !!req.headers['x-purpose'];
-  }
-  function isEmulator() {
-    const u = userAgent.toLowerCase();
-    return /android sdk|sdk_gphone|emulator|generic.*android|build\/generic|model.*unknown|vbox|genymotion|bluestacks|nox|andy|droid4x|memu|koplayer|mumu/i.test(u) ||
-      (ua.device && (ua.device.model === 'unknown' || ua.device.model === 'Emulator'));
-  }
-
-  // 🛡️ TRAFFIC GUARD V4: ASN INTELLIGENCE (Moved to lib/iron_dome.js)
-
-  let blockReason = null;
-  if (site.block_bots && isBot()) blockReason = 'Bot detectado';
-  else if (isEmulator()) blockReason = 'Emulador detectado (apenas celular real permitido)';
-  else if (geo.isp && ironDome.isHostingProvider(geo.isp) && site.block_bots) blockReason = `ASN/ISP de Hosting detectado (${geo.isp})`;
-  else if (site.block_desktop && isDesktop()) blockReason = 'Desktop detectado';
-  else if (site.block_facebook_library && isFromFacebook() && isDesktop()) blockReason = 'Biblioteca Facebook';
-  else if (allowedList.length > 0) {
-    const countryUpper = country ? country.toUpperCase() : null;
-    if (!countryUpper) blockReason = 'País não identificado pelo IP (bloqueado por segurança)';
-    else if (!allowedList.includes(countryUpper)) blockReason = `País não permitido: ${countryUpper}`;
-    else if (blockedList.length > 0 && blockedList.includes(countryUpper)) blockReason = `País bloqueado: ${countryUpper}`;
-  } else if (country && blockedList.includes(country.toUpperCase())) blockReason = `País bloqueado: ${country}`;
-
-  const wasBlocked = !!blockReason;
-
-  // UTMs e parâmetros dos Ads (vêm na URL do clique) – repassados para o link de oferta no redirect
-  const utm_source = (req.query.utm_source || '').trim() || null;
-  const utm_medium = (req.query.utm_medium || '').trim() || null;
-  const utm_campaign = (req.query.utm_campaign || '').trim() || null;
-  const utm_term = (req.query.utm_term || '').trim() || null;
-  const utm_content = (req.query.utm_content || '').trim() || null;
-  const fbclid = (req.query.fbclid || '').trim() || null;
-  const facebookParams = fbclid ? JSON.stringify({ fbclid }) : null;
-
-  await db.run(`INSERT INTO visitors (site_id, ip, user_agent, referrer, page_url, country, city, region, isp, device_type, browser, os, was_blocked, block_reason, is_bot, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebook_params, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [site.site_id, ip, userAgent, referer, fullUrl, country || null, geo.city || null, geo.region || null, geo.isp || null, deviceType, ua.browser?.name || null, ua.os?.name || null, wasBlocked ? 1 : 0, blockReason, isBot() ? 1 : 0, utm_source, utm_medium, utm_campaign, utm_term, utm_content, facebookParams]);
-
-  if (wasBlocked) {
-    const blockUrl = site.redirect_url || 'https://www.google.com/';
-    if ((site.block_behavior || 'redirect') === 'page') { if (await sendCustomPage(res, site)) return; }
-    if ((site.block_behavior || 'redirect') === 'embed') return sendEmbeddedPage(res, blockUrl);
-    return res.redirect(302, blockUrl);
-  }
-
-  // Redireciona para a oferta com a mesma query string (UTMs, fbclid, etc.) para a landing receber
-  let dest = site.target_url;
-  const qs = req.originalUrl.includes('?') ? req.originalUrl.split('?')[1] : '';
-  if (qs) dest += (dest.includes('?') ? '&' : '?') + qs;
-  return res.redirect(302, dest);
 });
 
 // Servir script dinâmico por site (opcional – modo antigo)
