@@ -1284,53 +1284,54 @@ function isPrivateIP(ip) {
 }
 
 // Helper: geolocalização por IP – retorna { country, city, region, isp } (ipapi.co + fallback ip-api.com)
+// Helper: geolocalização por IP – Sniper Precision (Redundância Paralela)
 async function getGeoByIP(ip) {
   const out = { country: null, city: null, region: null, isp: null };
   if (!ip || isPrivateIP(ip)) return out;
   const normalized = ip.replace(/^::ffff:/, '');
-  const headers = { 'User-Agent': 'CloakerPro/1.0' };
+  const headers = { 'User-Agent': 'CloakerPro/Elite' };
 
-  try {
-    const res = await fetch(`https://ipapi.co/${normalized}/json/`, { signal: AbortSignal.timeout(5000), headers });
-    if (res.ok) {
-      const geo = await res.json();
-      if (geo.country_code) {
-        out.country = geo.country_code;
-        out.city = geo.city || null;
-        out.region = geo.region || null;
-        out.isp = geo.org || geo.organisation || null;
-        return out;
-      }
-    }
-  } catch (e) { }
+  // Definição das fontes de inteligência (ordem de preferência implícita pela velocidade de resposta)
+  const sources = [
+    // Fonte 1: ipapi.co (Alta Precisão)
+    () => fetch(`https://ipapi.co/${normalized}/json/`, { signal: AbortSignal.timeout(3000), headers })
+      .then(async r => {
+        if (!r.ok) throw new Error('ipapi fail');
+        const d = await r.json();
+        if (!d.country_code) throw new Error('ipapi no data');
+        return { country: d.country_code, city: d.city, region: d.region, isp: d.org || d.organisation };
+      }),
 
-  try {
-    const res = await fetch(`http://ip-api.com/json/${normalized}?fields=countryCode,city,regionName,isp`, { signal: AbortSignal.timeout(5000), headers });
-    if (res.ok) {
-      const geo = await res.json();
-      if (geo.countryCode) {
-        out.country = geo.countryCode;
-        out.city = geo.city || null;
-        out.region = geo.regionName || null;
-        out.isp = geo.isp || null;
-        return out;
-      }
-    }
-  } catch (e) { }
+    // Fonte 2: ip-api.com (Rápida e Confiável)
+    () => fetch(`http://ip-api.com/json/${normalized}?fields=countryCode,city,regionName,isp`, { signal: AbortSignal.timeout(3000), headers })
+      .then(async r => {
+        if (!r.ok) throw new Error('ip-api fail');
+        const d = await r.json();
+        if (!d.countryCode) throw new Error('ip-api no data');
+        return { country: d.countryCode, city: d.city, region: d.regionName, isp: d.isp };
+      }),
 
-  try {
-    const res = await fetch(`https://ipwho.is/${normalized}`, { signal: AbortSignal.timeout(5000), headers });
-    if (res.ok) {
-      const geo = await res.json();
-      if (geo.success && geo.country_code) {
-        out.country = geo.country_code;
-        out.city = geo.city || null;
-        out.region = geo.region || null;
-        out.isp = (geo.connection && (geo.connection.isp || geo.connection.org)) || null;
-        return out;
-      }
+    // Fonte 3: ipwho.is (Fallback Robusto)
+    () => fetch(`https://ipwho.is/${normalized}`, { signal: AbortSignal.timeout(3000), headers })
+      .then(async r => {
+        if (!r.ok) throw new Error('ipwhois fail');
+        const d = await r.json();
+        if (!d.success || !d.country_code) throw new Error('ipwhois no data');
+        return { country: d.country_code, city: d.city, region: d.region, isp: (d.connection?.isp || d.connection?.org) };
+      })
+  ];
+
+  // Executa estratégias em "Race" (quem responder válido primeiro ganha)
+  // Se a primeira falhar, tenta a próxima sequencialmente para não estourar rate limits,
+  // mas com timeout curto (3s) para ser ágil.
+  for (const fetchGeo of sources) {
+    try {
+      const result = await fetchGeo();
+      if (result.country) return result;
+    } catch (e) {
+      // Silently fail to next source
     }
-  } catch (e) { }
+  }
 
   return out;
 }
